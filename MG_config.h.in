@@ -33,4 +33,6 @@
 
 #cmakedefine MG_HACK_QPHIX_TRANSFER
 
+#cmakedefine MG_HACK_HILBERT_CURVE
+
 #endif

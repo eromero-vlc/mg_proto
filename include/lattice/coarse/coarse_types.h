@@ -84,8 +84,8 @@ namespace MG {
 				_n_z( lattice_info.GetLatticeDimensions()[2] ),
 				_n_t( lattice_info.GetLatticeDimensions()[3] ),
 				_n_col( n_col ),
-				_n_col_offset(n_complex*_n_colorspin)//,
-				//_perm(cache_optimal_permutation(lattice_info))
+				_n_col_offset(n_complex*_n_colorspin),
+				_perm(cache_optimal_permutation(lattice_info))
 		{
 #if 1
 			// Check That we have 2 spins
@@ -228,7 +228,8 @@ namespace MG {
 				_n_x( lattice_info.GetLatticeDimensions()[0] ),
 				_n_y( lattice_info.GetLatticeDimensions()[1] ),
 				_n_z( lattice_info.GetLatticeDimensions()[2] ),
-				_n_t( lattice_info.GetLatticeDimensions()[3] )
+				_n_t( lattice_info.GetLatticeDimensions()[3] ),
+				_perm(cache_optimal_permutation(lattice_info))
 		{
 			// Check That we have 2 spins
 			if( lattice_info.GetNumSpins() != 2 ) {

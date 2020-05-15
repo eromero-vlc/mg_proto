@@ -18,6 +18,7 @@ set (MG_QPHIX_SOALEN 4 CACHE STRING "Default SOA Length")
 set (MG_QPHIX_COMPRESS12 FALSE CACHE BOOL "Default Compression Enabling")
 set (MG_WRITE_COARSE FALSE CACHE BOOL "Write coarse operators on disk")
 set (MG_HACK_QPHIX_TRANSFER FALSE CACHE BOOL "Transfer QPhiX matrix as CoarseDiracOp")
+set (MG_HACK_HILBERT_CURVE FALSE CACHE BOOL "Reorder sites following the Hilbert space-filling curve")
 
 if(MG_DEFAULT_ALIGNMENT)
   message(STATUS "User specified default alignment: ${MG_DEFAULT_ALIGNMENT}")
