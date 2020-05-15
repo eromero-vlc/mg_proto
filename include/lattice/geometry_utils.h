@@ -39,6 +39,13 @@ namespace MG {
 		}
 	}
 
+	inline std::size_t Volume(const IndexArray& dims) {
+		std::size_t vol = 1;
+		for (unsigned int i=0; i<n_dim; ++i) {
+			vol *= dims[i];
+		}
+		return vol;
+	}
 
 	inline
 	void IndexToCoords(unsigned int index,

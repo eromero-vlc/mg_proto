@@ -70,6 +70,7 @@ namespace MG {
 		mutable std::vector<std::shared_ptr<Spinor>> _tmp;
 		const AuxiliarySpinors<Spinor>* subrogate;
 	};
+
 }
 
 #endif

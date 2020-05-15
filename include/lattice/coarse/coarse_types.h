@@ -10,6 +10,7 @@
 
 #include "lattice/constants.h"
 #include "lattice/lattice_info.h"
+#include "lattice/geometry_utils.h"
 #include "utils/memory.h"
 #include "utils/auxiliary.h"
 #include "utils/print_utils.h"
@@ -18,6 +19,46 @@
 using namespace MG;
 
 namespace MG {
+
+	/** Permutation over the checkerboard sites
+	 *
+	 *  p[cb][cbsite] returns the position of the site with CB index cbsite and
+	 *  parity cb.
+	 *
+	 */
+
+	using CBPermutation = std::shared_ptr< std::array<std::vector<IndexType>,4> >;
+
+	/** Cache-efficient permutation over CB sites
+	 *  \param LatticeInfo
+	 *  \param ncol
+	 *
+	 *  Returns a permutation over the sites that increase the cache hits when
+	 *  applying one of the CoarseDiracOp operations.
+	 *
+	 */
+	CBPermutation cache_optimal_permutation(const LatticeInfo& info);
+
+	/** Permute the rows of a matrix
+	 *  \param v: matrix with p.size() rows and block_size columns made of floats
+	 *  \param block_size: number of columns
+	 *  \param p: permutation
+	 *
+	 *  Returns a new array that at row p[site] has the content of v[site,:].
+	 *
+	 */
+	float* permute(const float* v, std::size_t block_size, const std::vector<IndexType>& p);
+
+	/** Permute the rows of a matrix
+	 *  \param v: matrix with p.size() rows and block_size columns made of floats
+	 *  \param block_size: number of columns
+	 *  \param p0: original permutation
+	 *  \param p1: new permutation
+	 *
+	 *  Returns a new array that at row p1[site] has the content of v[p0[site],:].
+	 *
+	 */
+	float* permute(const float* v, std::size_t block_size, const std::vector<IndexType>& p0, const std::vector<IndexType>& p1);
 
 
 	/** Coarse Spinor
@@ -43,7 +84,8 @@ namespace MG {
 				_n_z( lattice_info.GetLatticeDimensions()[2] ),
 				_n_t( lattice_info.GetLatticeDimensions()[3] ),
 				_n_col( n_col ),
-				_n_col_offset(n_complex*_n_colorspin)
+				_n_col_offset(n_complex*_n_colorspin)//,
+				//_perm(cache_optimal_permutation(lattice_info))
 		{
 #if 1
 			// Check That we have 2 spins
@@ -63,16 +105,6 @@ namespace MG {
 			//data[1] = (data[0] + num_floats_per_cb);
 		}
 
-		/** GetCBData
-		 *
-		 * 	Returns a pointer to the data for cb
-		 */
-		inline
-		float* GetCBDataPtr(IndexType cb)
-		{
-			return data[cb];
-		}
-
 		/** GetSiteData
 		 *
 		 *  Returns a pointer to the data for a site in a cb
@@ -80,16 +112,25 @@ namespace MG {
 		 *  or it can be reinterpreted as _n_colorspin complexes
 		 */
 		inline
-		float* GetSiteDataPtr(IndexType col, IndexType cb, IndexType site)
+		float* GetSiteDataPtr(IndexType col, IndexType cb, IndexType site, bool raw=false)
 		{
+			if (!raw && _perm) site = (*_perm)[cb][site];
 			return &data[cb][site*_n_site_offset+col*_n_col_offset];
 		}
 
 		inline
-		const float* GetSiteDataPtr(IndexType col, IndexType cb, IndexType site) const
-			{
-				return &data[cb][site*_n_site_offset+col*_n_col_offset];
-			}
+		const float* GetSiteDataPtr(IndexType col, IndexType cb, IndexType site, bool raw=false) const
+		{
+			if (!raw && _perm) site = (*_perm)[cb][site];
+			return &data[cb][site*_n_site_offset+col*_n_col_offset];
+		}
+
+
+		IndexType PermIndexToCBIndex(IndexType site, int cb, bool raw=false) const
+		{
+			if (raw && _perm) site = (*_perm)[cb+2][site];
+			return site;
+		}
 
 		~CoarseSpinor()
 		{
@@ -167,7 +208,7 @@ namespace MG {
 		const IndexType _n_t;
 		const IndexType _n_col;
 		const IndexType _n_col_offset;
-
+		const CBPermutation _perm;
 
 	};
 
@@ -219,67 +260,40 @@ namespace MG {
 
 		}
 
-#if 0
-		/** GetSiteData
-		 *
-		 *  Returns a pointer to the data for a site in a cb
-		 *  This is essentially a float array of size _n_site_offset
-		 *  or it can be reinterpreted as _n_colorspin complexes
-		 */
-		inline
-		float* GetSiteDataPtr(IndexType cb, IndexType site)
-		{
-			return &data[cb][site*_n_site_offset];
+		private:
+		void _permute_array(float* v[2], IndexType block_size, CBPermutation new_p) {
+			for (int i=0; i<2; i++) {
+				float *old = v[i];
+				if (_perm) {
+					v[i] = MG::permute(v[i], block_size, (*_perm)[i], (*new_p)[i]);
+				} else {
+					v[i] = MG::permute(v[i], block_size, (*new_p)[i]);
+				}
+				MemoryFree(old);
+			}
 		}
 
-		/** GetSiteEODataPtr
-		 *
-		 *  Returns a pointer to the eo_data for a site in a cb
-		 *  This is essentially a float array of size _n_site_offset
-		 *  or it can be reinterpreted as _n_colorspin complexes
-		 */
-		inline
-		float* GetSiteADDataPtr(IndexType cb, IndexType site)
-		{
-			return &AD_data[cb][site*_n_site_offset];
+		public:
+		void permute(CBPermutation p) {
+			// If both permutations are the same, skip it
+			if (p == _perm) return;
+		
+			_permute_array(data, _n_site_offset, p);
+			_permute_array(AD_data, _n_site_offset, p);
+			_permute_array(DA_data, _n_site_offset, p);
+			_permute_array(diag_data, _n_link_offset, p);
+			_permute_array(invdiag_data, _n_link_offset, p);
+
+			_perm = p;
 		}
 
-		inline
-		float* GetSiteDADataPtr(IndexType cb, IndexType site)
+		IndexType PermIndexToCBIndex(IndexType site, int cb, bool raw=false) const
 		{
-			return &DA_data[cb][site*_n_site_offset];
+			if (raw && _perm) site = (*_perm)[cb+2][site];
+			return site;
 		}
 
-		/** GetSiteData
-		 *
-		 *  Returns a const pointer to the data for a site in a cb
-		 *  This is essentially a float array of size _n_site_offset
-		 *  or it can be reinterpreted as _n_colorspin complexes
-		 */
-		inline
-		const float* GetSiteDataPtr(IndexType cb, IndexType site) const
-		{
-			return &data[cb][site*_n_site_offset];
-		}
 
-		/** GetSiteEOData
-		 *
-		 *  Returns a const pointer to the eo_data for a site in a cb
-		 *  This is essentially a float array of size _n_site_offset
-		 *  or it can be reinterpreted as _n_colorspin complexes
-		 */
-		inline
-		const float* GetSiteADDataPtr(IndexType cb, IndexType site) const
-		{
-			return &AD_data[cb][site*_n_site_offset];
-		}
-
-		inline
-		const float* GetSiteDADataPtr(IndexType cb, IndexType site) const
-		{
-			return &DA_data[cb][site*_n_site_offset];
-		}
-#endif
 		/** GetSiteDirData
 		 *
 		 *  Returns a pointer to the link in direction mu
@@ -294,14 +308,16 @@ namespace MG {
 		 *      mu=7 - T backward
 		 */
 		inline
-		float *GetSiteDirDataPtr(IndexType cb, IndexType site, IndexType mu)
+		float *GetSiteDirDataPtr(IndexType cb, IndexType site, IndexType mu, bool raw=false)
 		{
+			if (!raw && _perm) site = (*_perm)[cb][site];
 			return &data[cb][site*_n_site_offset + mu*_n_link_offset];
 		}
 
 		inline
-		const float *GetSiteDirDataPtr(IndexType cb, IndexType site, IndexType mu) const
+		const float *GetSiteDirDataPtr(IndexType cb, IndexType site, IndexType mu, bool raw=false) const
 		{
+			if (!raw && _perm) site = (*_perm)[cb][site];
 			return &data[cb][site*_n_site_offset + mu*_n_link_offset];
 		}
 
@@ -319,14 +335,16 @@ namespace MG {
 		 *      mu=7 - T backward
 		 */
 		inline
-		float *GetSiteDirADDataPtr(IndexType cb, IndexType site, IndexType mu)
+		float *GetSiteDirADDataPtr(IndexType cb, IndexType site, IndexType mu, bool raw=false)
 		{
+			if (!raw && _perm) site = (*_perm)[cb][site];
 			return &AD_data[cb][site*_n_site_offset + mu*_n_link_offset];
 		}
 
 		inline
-		const float *GetSiteDirADDataPtr(IndexType cb, IndexType site, IndexType mu) const
+		const float *GetSiteDirADDataPtr(IndexType cb, IndexType site, IndexType mu, bool raw=false) const
 		{
+			if (!raw && _perm) site = (*_perm)[cb][site];
 			return &AD_data[cb][site*_n_site_offset + mu*_n_link_offset];
 		}
 
@@ -344,42 +362,46 @@ namespace MG {
 			 *      mu=7 - T backward
 			 */
 		inline
-		float *GetSiteDirDADataPtr(IndexType cb, IndexType site, IndexType mu)
+		float *GetSiteDirDADataPtr(IndexType cb, IndexType site, IndexType mu, bool raw=false)
 		{
+			if (!raw && _perm) site = (*_perm)[cb][site];
 			return &DA_data[cb][site*_n_site_offset + mu*_n_link_offset];
 		}
 
 		inline
-		const float *GetSiteDirDADataPtr(IndexType cb, IndexType site, IndexType mu) const
+		const float *GetSiteDirDADataPtr(IndexType cb, IndexType site, IndexType mu, bool raw=false) const
 		{
+			if (!raw && _perm) site = (*_perm)[cb][site];
 			return &DA_data[cb][site*_n_site_offset + mu*_n_link_offset];
 		}
 
 
 		inline
-		float *GetSiteDiagDataPtr(IndexType cb, IndexType site)
+		float *GetSiteDiagDataPtr(IndexType cb, IndexType site, bool raw=false)
 		{
+			if (!raw && _perm) site = (*_perm)[cb][site];
 			return &diag_data[cb][site*_n_link_offset];
 		}
 
 		inline
-		const float *GetSiteDiagDataPtr(IndexType cb, IndexType site) const
+		const float *GetSiteDiagDataPtr(IndexType cb, IndexType site, bool raw=false) const
 		{
+			if (!raw && _perm) site = (*_perm)[cb][site];
 			return &diag_data[cb][site*_n_link_offset];
 		}
 
 		inline
-		float *GetSiteInvDiagDataPtr(IndexType cb, IndexType site)
+		float *GetSiteInvDiagDataPtr(IndexType cb, IndexType site, bool raw=false)
 		{
+			if (!raw && _perm) site = (*_perm)[cb][site];
 			return &invdiag_data[cb][site*_n_link_offset];
-
 		}
 
 		inline
-		const float *GetSiteInvDiagDataPtr(IndexType cb, IndexType site) const
+		const float *GetSiteInvDiagDataPtr(IndexType cb, IndexType site, bool raw=false) const
 		{
+			if (!raw && _perm) site = (*_perm)[cb][site];
 			return &invdiag_data[cb][site*_n_link_offset];
-
 		}
 
 		inline
@@ -475,6 +497,7 @@ namespace MG {
 		const IndexType _n_z;
 		const IndexType _n_t;
 
+		CBPermutation _perm;
 	};
 
 

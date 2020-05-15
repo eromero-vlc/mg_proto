@@ -175,8 +175,6 @@ void CreateBlockList(std::vector<Block>& blocklist,  // vector of 'Block structu
 	// The ordering of the blocks *IS* checkerboarded for now, since the coarse lattice
 	// is checkerboarded. But within the blocks things are lexicographic still
 
-	IndexArray coarse_lattice_cb_dims(coarse_lattice_dimensions);
-	coarse_lattice_cb_dims[0]/=n_checkerboard;
 	IndexType num_coarse_cb_sites = num_coarse_sites/n_checkerboard;
 
 	// Now create the blocks: I can loop through the checkerboarded 'coarse sites'
@@ -185,6 +183,22 @@ void CreateBlockList(std::vector<Block>& blocklist,  // vector of 'Block structu
 	// FIXME: This is a block_cb, coarse_cbsite loop
 	//        However, block_idx is actually a lexicographic coordinate.???
 	//
+
+	// Test
+
+	int num_cb_even = 0;
+	for(int site=0; site < num_coarse_sites; ++site) {
+		IndexArray coarse_coords;
+		IndexToCoords(site, coarse_lattice_dimensions, coarse_coords);
+		int cb, cbsite;
+		CoordsToCBIndex(coarse_coords, coarse_lattice_dimensions, coarse_lattice_origin, cb, cbsite);
+		assert( cb == 0 || cb == 1);
+		assert( cbsite < num_coarse_sites/2 && cbsite >= 0);
+		if (cb == 0) num_cb_even++;
+		CBIndexToCoords(cbsite, cb, coarse_lattice_dimensions, coarse_lattice_origin, coarse_coords);
+		assert(site == CoordsToIndex(coarse_coords, coarse_lattice_dimensions));
+	}
+	assert(num_cb_even*2 == num_coarse_sites);
 
 	// Storage order of block list is coarse cbsite fastest then, coarse cb.
 	blocklist.resize(num_coarse_sites);

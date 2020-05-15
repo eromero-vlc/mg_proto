@@ -25,7 +25,7 @@ namespace MG {
 
 class CoarseDiracOp : public AuxiliarySpinors<CoarseSpinor> {
 public:
-	CoarseDiracOp(const LatticeInfo& l_info, IndexType n_smt = 1);
+	CoarseDiracOp(const LatticeInfo& l_info);
 
 
 	~CoarseDiracOp() {}
@@ -307,7 +307,6 @@ private:
 	const IndexType _n_color;
 	const IndexType _n_spin;
 	const IndexType _n_colorspin;
-	const IndexType _n_smt;
 	const IndexType _n_vrows;
 
 	int _n_threads;

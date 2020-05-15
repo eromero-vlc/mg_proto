@@ -30,7 +30,7 @@ public:
 	// Hardwire n_smt=1 for now.
 	CoarseEOWilsonCloverLinearOperator(const std::shared_ptr<Gauge>& gauge_in, int level) :
 		AuxiliarySpinors<CoarseSpinor>(&_the_op), _u(gauge_in),
-	 _the_op( gauge_in->GetInfo(), 1), _level(level)
+	 _the_op( gauge_in->GetInfo()), _level(level)
  	{
 		MasterLog(INFO, "Creating Coarse CoarseEOWilsonCloverLinearOperator LinOp");
 	}
@@ -51,6 +51,19 @@ public:
 								type);
 
 	}
+
+	void operatorForDeflation(Spinor& out, const Spinor& in) const {
+
+			std::shared_ptr<CoarseSpinor> t = tmp(in);
+			_the_op.EOPrecOp(*t,      // Output Spinor
+								(*_u),    // Gauge Field
+								in,
+								ODD,
+								LINOP_OP);
+			M_diag(out, *t, ODD);
+
+	}
+
 
 	void unprecOp(Spinor& out, const Spinor& in, IndexType type = LINOP_OP) const override {
 #pragma omp parallel

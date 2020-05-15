@@ -49,7 +49,7 @@ namespace MG {
 				std::shared_ptr<CoarseSpinor> ys = M->tmp(M->GetInfo(), *blockSize);
 
 				PutColumns((const float*)x, *ldx*2, *xs, M->GetSubset());
-				(*M)(*ys, *xs);
+				M->operatorForDeflation(*ys, *xs);
 				Gamma5Vec(*ys);
 				GetColumns(*ys, M->GetSubset(), (float*)y, *ldy*2);
 
@@ -156,8 +156,10 @@ namespace MG {
 }
 #else
 
+namespace MG {
   	template<typename LinOpT>
-	void MG::computeDeflation(CoarseSpinor &defl, const LinOpT& M) {}
+	void computeDeflation(CoarseSpinor &defl, const LinOpT& M) {}
+}
 
 #endif // MG_USE_PRIMME
 

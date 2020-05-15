@@ -28,7 +28,7 @@ class CoarseWilsonCloverLinearOperator : public LinearOperator<CoarseSpinor,Coar
 public:
 	// Hardwire n_smt=1 for now.
 	CoarseWilsonCloverLinearOperator(const std::shared_ptr<Gauge>& gauge_in, int level) : AuxiliarySpinors<CoarseSpinor>(&_the_op), _u(gauge_in),
-	 _the_op( gauge_in->GetInfo(), 1), _level(level)
+	 _the_op( gauge_in->GetInfo()), _level(level)
 	{
 		MasterLog(INFO, "Creating Coarse **NON-EO** CoarseWilsonCloverLinearOperator LinOp");
 	}
@@ -57,6 +57,11 @@ public:
 			}
 		}
 	}
+
+	void operatorForDeflation(Spinor& out, const Spinor& in) const {
+		this->operator()(out, in);
+	}
+
 
 	void generateCoarse(const std::vector<Block>& blocklist, const std::vector< std::shared_ptr<CoarseSpinor> > in_vecs, CoarseGauge& u_coarse) const
 	{

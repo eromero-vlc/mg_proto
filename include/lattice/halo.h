@@ -160,7 +160,7 @@ CommunicateHaloSync(HaloContainer<T>& halo, const T& in, const int target_cb)
 
 template<typename T, template <typename> class Accessor>
 inline const float*
-GetNeighborDir(const HaloContainer<T>& halo, const T& in, int dir, int target_cb, int cbsite )
+GetNeighborDir(const HaloContainer<T>& halo, const T& in, int dir, int target_cb, int cbsite, bool raw=false)
 {
 	// Local lattice size and its origin
 	const IndexArray& lattice_dims = halo.GetInfo().GetLatticeDimensions();
@@ -172,6 +172,7 @@ GetNeighborDir(const HaloContainer<T>& halo, const T& in, int dir, int target_cb
 
 	// Get the local coordinates of the site
 	IndexArray coor;
+	cbsite = in.PermIndexToCBIndex(cbsite, target_cb, raw);
 	CBIndexToCoords(cbsite, target_cb, lattice_dims, orig, coor);
 
 	// Get the local coordinates of the neighbor in direction dir

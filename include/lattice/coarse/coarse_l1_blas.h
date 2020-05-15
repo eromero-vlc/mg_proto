@@ -51,6 +51,7 @@ void GetColumns(const CoarseSpinor& x, const CBSubset& subset, float *y, size_t 
 void PutColumns(const float* y, size_t ld, CoarseSpinor& x, const CBSubset& subset);
 void Gamma5Vec(CoarseSpinor& x, const CBSubset& subset=SUBSET_ALL);
 
+
 }
 
 

@@ -9,11 +9,8 @@
 #include "utils/print_utils.h"
 #include "MG_config.h"
 #include <complex>
-
-// #include <immintrin.h>
-
-//#include "../../include/lattice/thread_info.h.bak"
 #include "lattice/geometry_utils.h"
+
 namespace MG {
 
 namespace {
@@ -25,13 +22,13 @@ namespace {
 	Neigh_spinors get_neigh_spinors(const HaloContainer<CoarseSpinor>& halo, const CoarseSpinor& in, int target_cb, int cbsite) {
 		Neigh_spinors neigh_spinor;
 		for (int mu=0; mu<8; mu++) {
-			neigh_spinor[mu] = GetNeighborDir<CoarseSpinor,CoarseAccessor>(halo, in, mu, target_cb, cbsite);
+			neigh_spinor[mu] = GetNeighborDir<CoarseSpinor,CoarseAccessor>(halo, in, mu, target_cb, cbsite, true);
 		}
 		return neigh_spinor;
 	}
 
 	Gauge_links get_gauge_links(const CoarseGauge& in, int target_cb, int cbsite) {
-		const float* gauge_base = in.GetSiteDirDataPtr(target_cb,cbsite,0);
+		const float* gauge_base = in.GetSiteDirDataPtr(target_cb,cbsite,0, true);
 		const IndexType gdir_offset = in.GetLinkOffset();
 		return Gauge_links({{
 			gauge_base,                    // X forward
@@ -46,8 +43,8 @@ namespace {
 
 	Gauge_links get_gauge_ad_links(const CoarseGauge& in, int target_cb, int cbsite, int dagger) {
 		const float* gauge_base = ((dagger == LINOP_OP) ?
-				in.GetSiteDirADDataPtr(target_cb,cbsite,0)
-				: in.GetSiteDirDADataPtr(target_cb,cbsite,0));
+				in.GetSiteDirADDataPtr(target_cb,cbsite,0, true)
+				: in.GetSiteDirDADataPtr(target_cb,cbsite,0, true));
 		const IndexType gdir_offset = in.GetLinkOffset();
 		return Gauge_links({{
 			gauge_base,                    // X forward
@@ -130,10 +127,10 @@ void CoarseDiracOp::unprecOp(CoarseSpinor& spinor_out,
 	// Site is output site
 	for(IndexType site=min_site; site < max_site;++site) {
 
-		float* output = spinor_out.GetSiteDataPtr(0, target_cb, site);
+		float* output = spinor_out.GetSiteDataPtr(0, target_cb, site, true);
 
-		const float* spinor_cb = spinor_in.GetSiteDataPtr(0, target_cb,site);
-		const float* clov = gauge_clov_in.GetSiteDiagDataPtr(target_cb,site);
+		const float* spinor_cb = spinor_in.GetSiteDataPtr(0, target_cb,site, true);
+		const float* clov = gauge_clov_in.GetSiteDiagDataPtr(target_cb,site, true);
 		siteApplyClover(GetNumColorSpin(), output,clov,spinor_cb,dagger, ncol);
 
 		const Gauge_links gauge_links = get_gauge_links(gauge_clov_in, target_cb, site);
@@ -159,9 +156,9 @@ void CoarseDiracOp::M_diag(CoarseSpinor& spinor_out,
 	// Site is output site
 	for(IndexType site=min_site; site < max_site;++site) {
 
-		float* output = spinor_out.GetSiteDataPtr(0, target_cb, site);
-		const float* clover = gauge_clov_in.GetSiteDiagDataPtr(target_cb,site);
-		const float* input = spinor_in.GetSiteDataPtr(0, target_cb,site);
+		float* output = spinor_out.GetSiteDataPtr(0, target_cb, site, true);
+		const float* clover = gauge_clov_in.GetSiteDiagDataPtr(target_cb,site, true);
+		const float* input = spinor_in.GetSiteDataPtr(0, target_cb,site, true);
 
 		siteApplyClover(GetNumColorSpin(), output, clover, input, dagger, ncol);
 	}
@@ -183,9 +180,9 @@ void CoarseDiracOp::M_diagInv(CoarseSpinor& spinor_out,
 	// Site is output site
 	for(IndexType site=min_site; site < max_site;++site) {
 
-		float* output = spinor_out.GetSiteDataPtr(0, target_cb, site);
-		const float* clover = gauge_clov_in.GetSiteInvDiagDataPtr(target_cb,site);
-		const float* input = spinor_in.GetSiteDataPtr(0, target_cb,site);
+		float* output = spinor_out.GetSiteDataPtr(0, target_cb, site, true);
+		const float* clover = gauge_clov_in.GetSiteInvDiagDataPtr(target_cb,site, true);
+		const float* input = spinor_in.GetSiteDataPtr(0, target_cb,site, true);
 
 		siteApplyClover(GetNumColorSpin(), output, clover, input, dagger, ncol);
 	}
@@ -212,7 +209,7 @@ void CoarseDiracOp::M_D_xpay(CoarseSpinor& spinor_out,
 	// Site is output site
 	for(IndexType site=min_site; site < max_site;++site) {
 
-		float* output = spinor_out.GetSiteDataPtr(0, target_cb, site);
+		float* output = spinor_out.GetSiteDataPtr(0, target_cb, site, true);
 
 		const Gauge_links gauge_links = get_gauge_links(gauge_clov_in, target_cb, site);
 		const Neigh_spinors neigh_spinors = get_neigh_spinors(_halo,spinor_in,target_cb,site);
@@ -241,8 +238,8 @@ void CoarseDiracOp::M_AD_xpayz(CoarseSpinor& spinor_out,
 	// Site is output site
 	for(IndexType site=min_site; site < max_site;++site) {
 
-		float* output = spinor_out.GetSiteDataPtr(0, target_cb, site);
-		const float* spinor_cb = spinor_in_cb.GetSiteDataPtr(0, target_cb,site);
+		float* output = spinor_out.GetSiteDataPtr(0, target_cb, site, true);
+		const float* spinor_cb = spinor_in_cb.GetSiteDataPtr(0, target_cb,site, true);
 		const Gauge_links gauge_links = get_gauge_ad_links(gauge_in, target_cb, site, dagger);
 		const Neigh_spinors neigh_spinors = get_neigh_spinors(_halo,spinor_in_od,target_cb,site);
 		genericSiteOffDiagXPayz(GetNumColorSpin(), InitOp::add, output, alpha, gauge_links, dagger, spinor_cb, neigh_spinors, ncol);
@@ -270,10 +267,10 @@ void CoarseDiracOp::M_DA_xpayz(CoarseSpinor& spinor_out,
 	// Site is output site
 	for(IndexType site=min_site; site < max_site;++site) {
 
-		float* output = spinor_out.GetSiteDataPtr(0, target_cb, site);
+		float* output = spinor_out.GetSiteDataPtr(0, target_cb, site, true);
 		const Gauge_links gauge_links = get_gauge_ad_links(gauge_clov_in, target_cb, site, dagger == LINOP_OP ? LINOP_DAGGER : LINOP_OP);
 		const Neigh_spinors neigh_spinors = get_neigh_spinors(_halo,spinor_in,target_cb,site);
-		const float* in_cb = spinor_cb.GetSiteDataPtr(0, target_cb,site);
+		const float* in_cb = spinor_cb.GetSiteDataPtr(0, target_cb,site, true);
 		genericSiteOffDiagXPayz(GetNumColorSpin(), InitOp::add, output, alpha, gauge_links, dagger, in_cb, neigh_spinors, ncol);
 	}
 
@@ -300,7 +297,7 @@ void CoarseDiracOp::M_AD(CoarseSpinor& spinor_out,
 
 		const Gauge_links gauge_links = get_gauge_ad_links(gauge_clov_in, target_cb, site, dagger);
 		const Neigh_spinors neigh_spinors = get_neigh_spinors(_halo,spinor_in,target_cb,site);
-		float* output = spinor_out.GetSiteDataPtr(0, target_cb, site);
+		float* output = spinor_out.GetSiteDataPtr(0, target_cb, site, true);
 		genericSiteOffDiagXPayz(GetNumColorSpin(), InitOp::zero, output, 1.0, gauge_links, dagger, output, neigh_spinors, ncol);
 	}
 
@@ -327,7 +324,7 @@ void CoarseDiracOp::M_DA(CoarseSpinor& spinor_out,
 
 		const Gauge_links gauge_links = get_gauge_ad_links(gauge_clov_in, target_cb, site, dagger == LINOP_OP ? LINOP_DAGGER : LINOP_OP);
 		const Neigh_spinors neigh_spinors = get_neigh_spinors(_halo,spinor_in,target_cb,site);
-		float* output = spinor_out.GetSiteDataPtr(0, target_cb, site);
+		float* output = spinor_out.GetSiteDataPtr(0, target_cb, site, true);
 		genericSiteOffDiagXPayz(GetNumColorSpin(), InitOp::zero, output, 1.0, gauge_links, dagger, output, neigh_spinors, ncol);
 	}
 }
@@ -385,15 +382,15 @@ void CoarseDiracOp::DslashDir(CoarseSpinor& spinor_out,
 	for(IndexType site=min_site; site < max_site;++site) {
 
 
-		float* output = spinor_out.GetSiteDataPtr(0, target_cb, site);
-		const float* gauge_link_dir = gauge_in.GetSiteDirDataPtr(target_cb,site,dir);
+		float* output = spinor_out.GetSiteDataPtr(0, target_cb, site, true);
+		const float* gauge_link_dir = gauge_in.GetSiteDirDataPtr(target_cb,site,dir, true);
 
 		/* The following case statement selects neighbors.
 		 *  It is culled from the full Dslash
 		 *  It of course would get complicated if some of the neighbors were in a halo
 		 */
 
-		const float *neigh_spinor = GetNeighborDir<CoarseSpinor,CoarseAccessor>(_halo, spinor_in, dir, target_cb, site);
+		const float *neigh_spinor = GetNeighborDir<CoarseSpinor,CoarseAccessor>(_halo, spinor_in, dir, target_cb, site, true);
 
 		// Multiply the link with the neighbor. EasyPeasy?
 		CMatMultNaive(output, gauge_link_dir, neigh_spinor, N_colorspin, spinor_in.GetNCol());
@@ -403,12 +400,11 @@ void CoarseDiracOp::DslashDir(CoarseSpinor& spinor_out,
 
 
 
-CoarseDiracOp::CoarseDiracOp(const LatticeInfo& l_info, IndexType n_smt)
+CoarseDiracOp::CoarseDiracOp(const LatticeInfo& l_info)
 	: _lattice_info(l_info),
 	  _n_color(l_info.GetNumColors()),
 	  _n_spin(l_info.GetNumSpins()),
 	  _n_colorspin(_n_color*_n_spin),
-	  _n_smt(n_smt),
 	  _n_vrows(2*_n_colorspin/VECLEN),
 	  _n_xh( l_info.GetCBLatticeDimensions()[0] ),
 	  _n_x( l_info.GetLatticeDimensions()[0] ),
@@ -436,43 +432,16 @@ CoarseDiracOp::CoarseDiracOp(const LatticeInfo& l_info, IndexType n_smt)
 		// This requires knowledge about the order in which threads are assigned.
 		//
 		const int tid = omp_get_thread_num();
-		const int n_cores = _n_threads/_n_smt;
+		const int n_cores = _n_threads;
 
 		// Decompose tid into site_par_id (parallelism over sites)
 		// and mv_par_id ( parallelism over rows of the matvec )
 		// Order is: mv_par_id + _n_mv_parallel*site_par_id
-        // Same as   smt_id + n_smt * core_id
-
-		const int core_id = tid/_n_smt;
-		const int smt_id = tid - _n_smt*core_id;
-		const int n_floats_per_cacheline =MG_DEFAULT_CACHE_LINE_SIZE/sizeof(float);
-		int n_cachelines = _n_vrows*VECLEN/n_floats_per_cacheline;
-		int cl_per_smt = n_cachelines/_n_smt;
-		if( n_cachelines % _n_smt != 0 ) cl_per_smt++;
-		int min_cl = smt_id*cl_per_smt;
-		int max_cl = MinInt((smt_id+1)*cl_per_smt, n_cachelines);
-		int min_vrow = (min_cl*n_floats_per_cacheline)/VECLEN;
-		int max_vrow = (max_cl*n_floats_per_cacheline)/VECLEN;
-
-#if 1
-		_thread_limits[tid].min_vrow = min_vrow;
-		_thread_limits[tid].max_vrow = max_vrow;
-#else
-		// Hack so that we get 1 thread per core running even in SMT mode
-		if ( smt_id == 0 ) {
-			_thread_limits[tid].min_vrow = 0;
-			_thread_limits[tid].max_vrow = (n_complex*_n_colorspin)/VECLEN;
-		}
-		else {
-			// Non SMT threads will idle (loop limits too high)
-			_thread_limits[tid].min_vrow =1+ (n_complex*_n_colorspin)/VECLEN;
-			_thread_limits[tid].max_vrow =1+ (n_complex*_n_colorspin)/VECLEN;
-		}
-#endif
 
 		// Find minimum and maximum site -- assume
 		// small lattice so no blocking at this point
 		// just linearly divide the sites
+		const int core_id = tid/_n_threads;
 		const int n_sites_cb = _lattice_info.GetNumCBSites();
 		int sites_per_core = n_sites_cb/n_cores;
 		if( n_sites_cb % n_cores != 0 ) sites_per_core++;
