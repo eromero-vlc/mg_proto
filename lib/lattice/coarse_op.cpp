@@ -432,7 +432,6 @@ CoarseDiracOp::CoarseDiracOp(const LatticeInfo& l_info)
 		// This requires knowledge about the order in which threads are assigned.
 		//
 		const int tid = omp_get_thread_num();
-		const int n_cores = _n_threads;
 
 		// Decompose tid into site_par_id (parallelism over sites)
 		// and mv_par_id ( parallelism over rows of the matvec )
@@ -441,12 +440,11 @@ CoarseDiracOp::CoarseDiracOp(const LatticeInfo& l_info)
 		// Find minimum and maximum site -- assume
 		// small lattice so no blocking at this point
 		// just linearly divide the sites
-		const int core_id = tid/_n_threads;
 		const int n_sites_cb = _lattice_info.GetNumCBSites();
-		int sites_per_core = n_sites_cb/n_cores;
-		if( n_sites_cb % n_cores != 0 ) sites_per_core++;
-		int min_site = core_id*sites_per_core;
-		int max_site = MinInt((core_id+1)*sites_per_core, n_sites_cb);
+		int sites_per_core = n_sites_cb/_n_threads;
+		if( n_sites_cb % _n_threads != 0 ) sites_per_core++;
+		int min_site = tid*sites_per_core;
+		int max_site = MinInt((tid+1)*sites_per_core, n_sites_cb);
 		_thread_limits[tid].min_site = min_site;
 		_thread_limits[tid].max_site = max_site;
 
