@@ -303,6 +303,10 @@ public:
 	static void write(const CoarseGauge& gauge_clov_in, std::string& filename);
 	
 private:
+
+	void GetWorkload(int ncols, int& blocksize, int& ld) const;
+	void GetWorkloadForDiag(int tid, int& min_site, int& max_site) const;
+
 	const LatticeInfo& _lattice_info;
 	const IndexType _n_color;
 	const IndexType _n_spin;

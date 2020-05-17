@@ -10,6 +10,7 @@
 #include "MG_config.h"
 #include "constants.h"
 #include <complex>
+#include <cassert>
 
 #undef SSE
 #undef AVX2
@@ -55,6 +56,22 @@ inline int MinInt(const int& a, const int& b)
  * NB: precondition, N is minimally 8
  */
 
+template<typename T>
+static inline void copy_matrix(const T* __restrict__ x, int m, int n, int ldx, T* __restrict__ y, int ldy) {
+	assert(m == 0 || n == 0 || (ldx >= m && ldy >= m));
+	if (x != y)
+		for (int i = 0; i < n; i++)
+			for (int j = 0; j < m; j++)
+				y[i * ldy + j] = x[i * ldx + j];
+}
+
+typedef int LAPACK_BLASINT;
+
+void XGEMM(const char *transa, const char *transb, LAPACK_BLASINT m,
+		LAPACK_BLASINT n, LAPACK_BLASINT k, std::complex<float> alpha,
+		const std::complex<float> *a, LAPACK_BLASINT lda, const std::complex<float> *b,
+		LAPACK_BLASINT ldb, std::complex<float> beta, std::complex<float> *c,
+		LAPACK_BLASINT ldc);
 
 /* Same as CMatMult, but passing in the min and max vrows
  * -- caller computes, and possibly stores in a ThreadInfo structure

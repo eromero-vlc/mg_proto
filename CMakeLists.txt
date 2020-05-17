@@ -11,7 +11,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/CMakeModules/")
 
 set (MG_DEFAULT_LOGLEVEL DEBUG CACHE STRING "Default Loglevel")
 set (MG_USE_AVX512 CACHE BOOL FALSE)
-set (MG_ENABLE_TIMERS CACHE BOOL FALSE )
+set (MG_ENABLE_TIMERS FALSE CACHE BOOL "Report timmings")
 set (MG_KOKKOS_DISPATCH CACHE STRING "FALSE")
 set (MG_KOKKOS_USE_NEIGHBOR_TABLE CACHE BOOL TRUE)
 set (MG_QPHIX_SOALEN 4 CACHE STRING "Default SOA Length")
@@ -19,6 +19,7 @@ set (MG_QPHIX_COMPRESS12 FALSE CACHE BOOL "Default Compression Enabling")
 set (MG_WRITE_COARSE FALSE CACHE BOOL "Write coarse operators on disk")
 set (MG_HACK_QPHIX_TRANSFER FALSE CACHE BOOL "Transfer QPhiX matrix as CoarseDiracOp")
 set (MG_HACK_HILBERT_CURVE FALSE CACHE BOOL "Reorder sites following the Hilbert space-filling curve")
+set (BLAS_LIBRARIES_EXTRA "" CACHE STRING "Extra linking flags for BLAS")
 
 if(MG_DEFAULT_ALIGNMENT)
   message(STATUS "User specified default alignment: ${MG_DEFAULT_ALIGNMENT}")
@@ -203,6 +204,7 @@ endif(MG_USE_PRIMME)
 # Check BLAS
 find_package(BLAS REQUIRED)
 LIST(APPEND EXT_LIBS ${BLAS_LIBRARIES})
+LIST(APPEND EXT_LIBS ${BLAS_LIBRARIES_EXTRA})
 
 # Add a config.h like file to pass some of the
 # CMake settings to the source
