@@ -88,8 +88,8 @@ std::vector<double> XmyNorm2Vec(CoarseSpinor& x, const CoarseSpinor& y, const CB
 			for(int col = 0; col < ncol; ++col ) {
 
 				// Identify the site and the column
-				float* x_site_data = x.GetSiteDataPtr(col,cb,cbsite);
-				const float* y_site_data = y.GetSiteDataPtr(col,cb,cbsite);
+				float* __restrict__  x_site_data = x.GetSiteDataPtr(col,cb,cbsite,true);
+				const float* __restrict__ y_site_data = y.GetSiteDataPtr(col,cb,cbsite,true);
 
 				// Sum difference over the colorspins
 				double cspin_sum=0;
@@ -140,7 +140,7 @@ std::vector<double> Norm2Vec(const CoarseSpinor& x, const CBSubset& subset)
 			for(int col = 0; col < ncol; ++col ) {
 
 				// Identify the site and the column
-				const float* x_site_data = x.GetSiteDataPtr(col,cb,cbsite);
+				const float* __restrict__ x_site_data = x.GetSiteDataPtr(col,cb,cbsite,true);
 
 				// Sum difference over the colorspins
 				double cspin_sum = 0;
@@ -190,8 +190,8 @@ std::vector<std::complex<double>> InnerProductVec(const CoarseSpinor& x, const C
 
 
 				// Identify the site and the column
-				const float* x_site_data = x.GetSiteDataPtr(col,cb,cbsite);
-				const float* y_site_data = y.GetSiteDataPtr(col,cb,cbsite);
+				const float* __restrict__ x_site_data = x.GetSiteDataPtr(col,cb,cbsite,true);
+				const float* __restrict__ y_site_data = y.GetSiteDataPtr(col,cb,cbsite,true);
 
 				// Sum difference over the colorspins
 
@@ -235,7 +235,7 @@ void ZeroVec(CoarseSpinor& x, const CBSubset& subset)
 			for(int col = 0; col < ncol; ++col ) {
 
 				// Identify the site and the column
-				float* x_site_data = x.GetSiteDataPtr(col,cb,cbsite);
+				float* __restrict__ x_site_data = x.GetSiteDataPtr(col,cb,cbsite,true);
 
 				// Set zeros over the colorspins
 #pragma omp simd
@@ -272,8 +272,8 @@ void CopyVec(CoarseSpinor& x, const CoarseSpinor& y, const CBSubset& subset)
 
 
 				// Identify the site and the column
-				float* x_site_data = x.GetSiteDataPtr(col,cb,cbsite);
-				const float* y_site_data = y.GetSiteDataPtr(col,cb,cbsite);
+				float* __restrict__ x_site_data = x.GetSiteDataPtr(col,cb,cbsite,true);
+				const float* __restrict__ y_site_data = y.GetSiteDataPtr(col,cb,cbsite,true);
 
 				// Do copies over the colorspins
 #pragma omp simd
@@ -309,7 +309,7 @@ void ScaleVec(const std::vector<float>& alpha, CoarseSpinor& x, const CBSubset& 
 
 
 				// Identify the site and the column
-				float* x_site_data = x.GetSiteDataPtr(col,cb,cbsite);
+				float* __restrict__ x_site_data = x.GetSiteDataPtr(col,cb,cbsite,true);
 				float alpha_col = alpha[col];
 
 #pragma omp simd
@@ -343,7 +343,7 @@ void ScaleVec(const std::vector<std::complex<float>>& alpha, CoarseSpinor& x, co
 
 
 				// Identify the site and the column
-				float* x_site_data = x.GetSiteDataPtr(col,cb,cbsite);
+				float* __restrict__ x_site_data = x.GetSiteDataPtr(col,cb,cbsite,true);
 				std::complex<float> alpha_col = alpha[col];
 
 #pragma omp simd
@@ -387,8 +387,8 @@ void AxpyVecT(const std::vector<T>& alpha, const CoarseSpinor& x, CoarseSpinor& 
 
 
 				// Identify the site and the column
-				const std::complex<float>* x_site_data = reinterpret_cast<const std::complex<float>*>(x.GetSiteDataPtr(col,cb,cbsite));
-				std::complex<float>* y_site_data = reinterpret_cast<std::complex<float>*>(y.GetSiteDataPtr(col,cb,cbsite));
+				const std::complex<float>* __restrict__ x_site_data = reinterpret_cast<const std::complex<float>*>(x.GetSiteDataPtr(col,cb,cbsite,true));
+				std::complex<float>* __restrict__ y_site_data = reinterpret_cast<std::complex<float>*>(y.GetSiteDataPtr(col,cb,cbsite,true));
 				auto alpha_col = toFloat(alpha[col]);
 
 				// Do axpy over the colorspins
@@ -434,8 +434,8 @@ void YpeqxVec(const CoarseSpinor& x, CoarseSpinor& y, const CBSubset& subset)
 			for(int col = 0; col < ncol; ++col ) {
 
 				// Identify the site and the column
-				const float* x_site_data = x.GetSiteDataPtr(col,cb,cbsite);
-				float* y_site_data = y.GetSiteDataPtr(col,cb,cbsite);
+				const float* __restrict__ x_site_data = x.GetSiteDataPtr(col,cb,cbsite,true);
+				float* __restrict__ y_site_data = y.GetSiteDataPtr(col,cb,cbsite,true);
 
 				// Do over the colorspins
 #pragma omp simd
@@ -467,8 +467,8 @@ void YmeqxVec(const CoarseSpinor& x, CoarseSpinor& y, const CBSubset& subset)
 			for(int col = 0; col < ncol; ++col ) {
 
 				// Identify the site and the column
-				const float* x_site_data = x.GetSiteDataPtr(col,cb,cbsite);
-				float* y_site_data = y.GetSiteDataPtr(col,cb,cbsite);
+				const float* __restrict__ x_site_data = x.GetSiteDataPtr(col,cb,cbsite,true);
+				float* __restrict__ y_site_data = y.GetSiteDataPtr(col,cb,cbsite,true);
 
 				// Do over the colorspins
 #pragma omp simd
@@ -509,9 +509,9 @@ void BiCGStabPUpdate(const std::vector<std::complex<float>>& beta,
 			for(int col = 0; col < ncol; ++col ) {
 
 				// Identify the site and the column
-				const float* r_site_data = r.GetSiteDataPtr(col,cb,cbsite);
-				const float* v_site_data = v.GetSiteDataPtr(col,cb,cbsite);
-				float* p_site_data = p.GetSiteDataPtr(col,cb,cbsite);
+				const float* __restrict__ r_site_data = r.GetSiteDataPtr(col,cb,cbsite,true);
+				const float* __restrict__ v_site_data = v.GetSiteDataPtr(col,cb,cbsite,true);
+				float* __restrict__ p_site_data = p.GetSiteDataPtr(col,cb,cbsite,true);
 				std::complex<float> beta_col = beta[col];
 				std::complex<float> omega_col = omega[col];
 
@@ -569,9 +569,9 @@ void BiCGStabXUpdate(const std::vector<std::complex<float>>& omega,
 			for(int col = 0; col < ncol; ++col ) {
 
 				// Identify the site and the column
-				const float* r_site_data = r.GetSiteDataPtr(col,cb,cbsite);
-				const float* p_site_data = p.GetSiteDataPtr(col,cb,cbsite);
-				float* x_site_data = x.GetSiteDataPtr(col,cb,cbsite);
+				const float* __restrict__ r_site_data = r.GetSiteDataPtr(col,cb,cbsite,true);
+				const float* __restrict__ p_site_data = p.GetSiteDataPtr(col,cb,cbsite,true);
+				float* __restrict__ x_site_data = x.GetSiteDataPtr(col,cb,cbsite,true);
 				std::complex<float> alpha_col = alpha[col];
 				std::complex<float> omega_col = omega[col];
 
@@ -624,9 +624,9 @@ void XmyzVec(const CoarseSpinor&x, const CoarseSpinor& y,
 			for(int col = 0; col < ncol; ++col ) {
 
 				// Identify the site and the column
-				const float* x_site_data = x.GetSiteDataPtr(col,cb,cbsite);
-				const float* y_site_data = y.GetSiteDataPtr(col,cb,cbsite);
-				float* z_site_data = z.GetSiteDataPtr(col,cb,cbsite);
+				const float* __restrict__ x_site_data = x.GetSiteDataPtr(col,cb,cbsite,true);
+				const float* __restrict__ y_site_data = y.GetSiteDataPtr(col,cb,cbsite,true);
+				float* __restrict__ z_site_data = z.GetSiteDataPtr(col,cb,cbsite,true);
 
 				// Do over the colorspins
 #pragma omp simd
@@ -643,7 +643,7 @@ void XmyzVec(const CoarseSpinor&x, const CoarseSpinor& y,
 	} // End of Parallel for region
 }
 
-void GetColumns(const CoarseSpinor& x, const CBSubset& subset, float *y, size_t ld) {
+void GetColumns(const CoarseSpinor& x, const CBSubset& subset, float *__restrict__ y, size_t ld) {
 	const LatticeInfo& x_info = x.GetInfo();
 
 	IndexType num_cbsites = x_info.GetNumCBSites();
@@ -657,7 +657,7 @@ void GetColumns(const CoarseSpinor& x, const CBSubset& subset, float *y, size_t 
 			for(int col = 0; col < ncol; ++col ) {
 
 				// Identify the site and the column
-				const float* x_site_data = x.GetSiteDataPtr(col,cb,cbsite);
+				const float* __restrict__ x_site_data = x.GetSiteDataPtr(col,cb,cbsite,true);
 
 				// Do over the colorspins
 #pragma omp simd
@@ -674,7 +674,7 @@ void GetColumns(const CoarseSpinor& x, const CBSubset& subset, float *y, size_t 
 	} // End of Parallel for region
 }
 
-void PutColumns(const float* y, size_t ld, CoarseSpinor& x, const CBSubset& subset) {
+void PutColumns(const float* __restrict__ y, size_t ld, CoarseSpinor& x, const CBSubset& subset) {
 	const LatticeInfo& x_info = x.GetInfo();
 
 	IndexType num_cbsites = x_info.GetNumCBSites();
@@ -688,7 +688,7 @@ void PutColumns(const float* y, size_t ld, CoarseSpinor& x, const CBSubset& subs
 			for(int col = 0; col < ncol; ++col ) {
 
 				// Identify the site and the column
-				float* x_site_data = x.GetSiteDataPtr(col,cb,cbsite);
+				float* __restrict__ x_site_data = x.GetSiteDataPtr(col,cb,cbsite,true);
 
 				// Do over the colorspins
 #pragma omp simd
@@ -718,7 +718,7 @@ void Gamma5Vec(CoarseSpinor& x, const CBSubset& subset) {
 			for(int col = 0; col < ncol; ++col ) {
 
 				// Identify the site and the column
-				float* x_site_data = x.GetSiteDataPtr(col,cb,cbsite);
+				float* __restrict__ x_site_data = x.GetSiteDataPtr(col,cb,cbsite,true);
 
 				// Do over the colorspins
 #pragma omp simd
@@ -767,7 +767,7 @@ void Gaussian(CoarseSpinor& x, const CBSubset& subset)
 			for(int cbsite = 0; cbsite < num_cbsites; ++cbsite) {
 				for(int col = 0; col < ncol; ++col ) {
 
-					float* x_site_data = x.GetSiteDataPtr(col,cb,cbsite);
+					float* __restrict__ x_site_data = x.GetSiteDataPtr(col,cb,cbsite,true);
 
 					for(int cspin=0; cspin < num_colorspin; ++cspin)  {
 
