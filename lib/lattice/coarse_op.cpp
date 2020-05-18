@@ -20,6 +20,29 @@
 namespace MG {
 
 	namespace {
+
+		template<unsigned int M>
+			static inline void copy_matrix_mu(const float* __restrict__ x, unsigned int n, float* __restrict__ y) {
+				for (unsigned int i = 0; i < n; ++i) {
+					const float* __restrict__ x0 = &x[i*M];
+					float* __restrict__ y0 = &y[i*M*8];
+#pragma omp simd aligned(x0,y0:sizeof(float)*4)
+					for (unsigned int j = 0; j < M; ++j)
+						y0[j] = x0[j];
+				}
+			}
+
+		static inline void copy_matrix_mu(const float* x, unsigned int m, unsigned int n, float* y) {
+			if      (m == 12) copy_matrix_mu<12>(x, n, y);
+			else if (m == 24) copy_matrix_mu<24>(x, n, y);
+			else if (m == 48) copy_matrix_mu<48>(x, n, y);
+			else if (m == 32) copy_matrix_mu<32>(x, n, y);
+			else if (m == 64) copy_matrix_mu<64>(x, n, y);
+			else if (m == 96) copy_matrix_mu<96>(x, n, y);
+			else if (m == 128) copy_matrix_mu<128>(x, n, y);
+			else assert(false);
+		}
+
 		enum InitOp { zero, add };
 
 		typedef std::array<const float*,8> Neigh_spinors;
@@ -71,7 +94,7 @@ namespace MG {
 				IndexType dagger, 
 				const float* spinor_cb,
 				const Neigh_spinors& neigh_spinors,
-				IndexType ncol, float *input)
+				IndexType ncol, float *input=nullptr)
 		{
 			// This is the same as for the dagger because we have G_5 I G_5 = G_5 G_5 I = I
 			// D is the diagonal
@@ -82,24 +105,32 @@ namespace MG {
 			}
 
 			if (dagger == LINOP_OP) {
-				for(int mu=0; mu < 8; ++mu)
-					CMatMultCoeffAddNaive(initop == zero && mu == 0 ? 0.0 : 1.0, output, alpha, gauge_links[mu], neigh_spinors[mu], N_colorspin, ncol);
-				// if (initop == zero) {
-				// 	for(int i=0; i < 2*N_colorspin*ncol; ++i) {
-				// 		output[i] = 0.0;
-				// 	}
-				// }
+				if (input == nullptr) {
+					// Old fashion: output = \sum_mu gauge_links[mu] * neigh_spinors[mu]
+					for(int mu=0; mu < 8; ++mu)
+						CMatMultCoeffAddNaive(initop == zero && mu == 0 ? 0.0 : 1.0, output, alpha, gauge_links[mu], neigh_spinors[mu], N_colorspin, ncol);
+				} else {
+					// New fashion: output = [ gauge_links[0] gauge_links[1] ...] * [ neigh_spinors[0]; neigh_spinors[1]; ...]
+					if (initop == zero) {
+						for(int i=0; i < 2*N_colorspin*ncol; ++i) {
+							output[i] = 0.0;
+						}
+					}
 
-				// for(int mu=0; mu < 8; ++mu)
-				// 	copy_matrix(neigh_spinors[mu], 2*N_colorspin, ncol, 2*N_colorspin, &input[2*N_colorspin*mu], 2*N_colorspin*8);
-				// const std::complex<float>* Ac = reinterpret_cast<const std::complex<float>*>(gauge_links[0]);
-				// const std::complex<float>* inputc = reinterpret_cast<const std::complex<float>*>(input);
-				// std::complex<float>* outputc = reinterpret_cast<std::complex<float>*>(output);
+					// Copy all neigh_spinors into the single matrix 'input'
+					for(int mu=0; mu < 8; ++mu)
+						copy_matrix_mu(neigh_spinors[mu], 2*N_colorspin, ncol, &input[2*N_colorspin*mu]);
 
-				// XGEMM("N", "N", N_colorspin, ncol, N_colorspin*8, alpha, Ac, N_colorspin, inputc, N_colorspin*8, initop == zero ? 0.0 : 1.0, outputc, N_colorspin);
+					// Call a single GEMM
+					const std::complex<float>* Ac = reinterpret_cast<const std::complex<float>*>(gauge_links[0]);
+					const std::complex<float>* inputc = reinterpret_cast<const std::complex<float>*>(input);
+					std::complex<float>* outputc = reinterpret_cast<std::complex<float>*>(output);
+					XGEMM("N", "N", N_colorspin, ncol, N_colorspin*8, alpha, Ac, N_colorspin, inputc, N_colorspin*8, initop == zero ? 0.0 : 1.0, outputc, N_colorspin);
+				}
 			} else {
 				for(int mu=0; mu < 8; ++mu)
 					GcCMatMultGcCoeffAddNaive(initop == zero && mu == 0 ? 0.0 : 1.0, output, alpha, gauge_links[mu], neigh_spinors[mu], N_colorspin, ncol);
+				assert(false);
 			}
 		}
 
@@ -144,8 +175,8 @@ namespace MG {
 		float *input = new float[GetNumColorSpin()*ncol*2 * 8];
 
 		// Site is output site
-		for(IndexType site = tid*blocksize, max_site = _lattice_info.GetNumCBSites(); site < max_site; site += ld)
-			for(int blki=0; blki < blocksize && site < max_site; ++site, blki++) {
+		for(IndexType site0 = tid*blocksize, max_site = _lattice_info.GetNumCBSites(); site0 < max_site; site0 += ld) {
+			for(int blki=0, site=site0; blki < blocksize && site < max_site; ++site, ++blki) {
 
 				float* output = spinor_out.GetSiteDataPtr(0, target_cb, site, true);
 
@@ -157,6 +188,7 @@ namespace MG {
 				const Neigh_spinors neigh_spinors = get_neigh_spinors(_halo,spinor_in,target_cb,site);
 				genericSiteOffDiagXPayz(GetNumColorSpin(), InitOp::add, output, 1.0, gauge_links, dagger, output, neigh_spinors, ncol, input);
 			}
+		}
 
 		delete[] input;
 	}
@@ -229,8 +261,8 @@ namespace MG {
 		float *input = new float[GetNumColorSpin()*ncol*2 * 8];
 
 		// Site is output site
-		for(IndexType site = tid*blocksize, max_site = _lattice_info.GetNumCBSites(); site < max_site; site += ld)
-			for(int blki=0; blki < blocksize && site < max_site; ++site, blki++) {
+		for(IndexType site0 = tid*blocksize, max_site = _lattice_info.GetNumCBSites(); site0 < max_site; site0 += ld) {
+			for(int blki=0, site=site0; blki < blocksize && site < max_site; ++site, ++blki) {
 
 				float* output = spinor_out.GetSiteDataPtr(0, target_cb, site, true);
 
@@ -238,6 +270,7 @@ namespace MG {
 				const Neigh_spinors neigh_spinors = get_neigh_spinors(_halo,spinor_in,target_cb,site);
 				genericSiteOffDiagXPayz(GetNumColorSpin(), InitOp::add, output, alpha, gauge_links, dagger, output, neigh_spinors, ncol, input);
 			}
+		}
 
 		delete[] input;
 	}
@@ -261,8 +294,8 @@ namespace MG {
 		float *input = new float[GetNumColorSpin()*ncol*2 * 8];
 
 		// Site is output site
-		for(IndexType site = tid*blocksize, max_site = _lattice_info.GetNumCBSites(); site < max_site; site += ld)
-			for(int blki=0; blki < blocksize && site < max_site; ++site, blki++) {
+		for(IndexType site0 = tid*blocksize, max_site = _lattice_info.GetNumCBSites(); site0 < max_site; site0 += ld) {
+			for(int blki=0, site=site0; blki < blocksize && site < max_site; ++site, ++blki) {
 
 				float* output = spinor_out.GetSiteDataPtr(0, target_cb, site, true);
 				const float* spinor_cb = spinor_in_cb.GetSiteDataPtr(0, target_cb,site, true);
@@ -270,6 +303,7 @@ namespace MG {
 				const Neigh_spinors neigh_spinors = get_neigh_spinors(_halo,spinor_in_od,target_cb,site);
 				genericSiteOffDiagXPayz(GetNumColorSpin(), InitOp::add, output, alpha, gauge_links, dagger, spinor_cb, neigh_spinors, ncol, input);
 			}
+		}
 
 		delete[] input;
 	}
@@ -293,8 +327,8 @@ namespace MG {
 		float *input = new float[GetNumColorSpin()*ncol*2 * 8];
 
 		// Site is output site
-		for(IndexType site = tid*blocksize, max_site = _lattice_info.GetNumCBSites(); site < max_site; site += ld)
-			for(int blki=0; blki < blocksize && site < max_site; ++site, blki++) {
+		for(IndexType site0 = tid*blocksize, max_site = _lattice_info.GetNumCBSites(); site0 < max_site; site0 += ld) {
+			for(int blki=0, site=site0; blki < blocksize && site < max_site; ++site, ++blki) {
 
 				float* output = spinor_out.GetSiteDataPtr(0, target_cb, site, true);
 				const Gauge_links gauge_links = get_gauge_ad_links(gauge_clov_in, target_cb, site, dagger == LINOP_OP ? LINOP_DAGGER : LINOP_OP);
@@ -302,6 +336,7 @@ namespace MG {
 				const float* in_cb = spinor_cb.GetSiteDataPtr(0, target_cb,site, true);
 				genericSiteOffDiagXPayz(GetNumColorSpin(), InitOp::add, output, alpha, gauge_links, dagger, in_cb, neigh_spinors, ncol, input);
 			}
+		}
 
 		delete[] input;
 	}
@@ -324,16 +359,18 @@ namespace MG {
 		float *input = new float[GetNumColorSpin()*ncol*2 * 8];
 
 		// Site is output site
-		for(IndexType site = tid*blocksize, max_site = _lattice_info.GetNumCBSites(); site < max_site; site += ld)
-			for(int blki=0; blki < blocksize && site < max_site; ++site, blki++) {
+		for(IndexType site0 = tid*blocksize, max_site = _lattice_info.GetNumCBSites(); site0 < max_site; site0 += ld) {
+			for(int blki=0, site=site0; blki < blocksize && site < max_site; ++site, ++blki) {
 
 				const Gauge_links gauge_links = get_gauge_ad_links(gauge_clov_in, target_cb, site, dagger);
 				const Neigh_spinors neigh_spinors = get_neigh_spinors(_halo,spinor_in,target_cb,site);
 				float* output = spinor_out.GetSiteDataPtr(0, target_cb, site, true);
 				genericSiteOffDiagXPayz(GetNumColorSpin(), InitOp::zero, output, 1.0, gauge_links, dagger, output, neigh_spinors, ncol, input);
 			}
+		}
 
 		delete[] input;
+
 	}
 
 
@@ -354,14 +391,15 @@ namespace MG {
 		float *input = new float[GetNumColorSpin()*ncol*2 * 8];
 
 		// Site is output site
-		for(IndexType site = tid*blocksize, max_site = _lattice_info.GetNumCBSites(); site < max_site; site += ld)
-			for(int blki=0; blki < blocksize && site < max_site; ++site, blki++) {
+		for(IndexType site0 = tid*blocksize, max_site = _lattice_info.GetNumCBSites(); site0 < max_site; site0 += ld) {
+			for(int blki=0, site=site0; blki < blocksize && site < max_site; ++site, ++blki) {
 
 				const Gauge_links gauge_links = get_gauge_ad_links(gauge_clov_in, target_cb, site, dagger == LINOP_OP ? LINOP_DAGGER : LINOP_OP);
 				const Neigh_spinors neigh_spinors = get_neigh_spinors(_halo,spinor_in,target_cb,site);
 				float* output = spinor_out.GetSiteDataPtr(0, target_cb, site, true);
 				genericSiteOffDiagXPayz(GetNumColorSpin(), InitOp::zero, output, 1.0, gauge_links, dagger, output, neigh_spinors, ncol, input);
 			}
+		}
 
 		delete[] input;
 	}
@@ -379,8 +417,8 @@ namespace MG {
 
 		// This needs to be figured out.
 
-		IndexType min_site = _thread_limits[tid].min_site;
-		IndexType max_site = _thread_limits[tid].max_site;
+		int min_site, max_site;
+		GetWorkloadForDiag(tid, min_site, max_site);
 		const int N_colorspin = GetNumColorSpin();
 
 		// The opposite direction
@@ -439,54 +477,19 @@ namespace MG {
 
 	CoarseDiracOp::CoarseDiracOp(const LatticeInfo& l_info)
 		: _lattice_info(l_info),
-		_n_color(l_info.GetNumColors()),
-		_n_spin(l_info.GetNumSpins()),
-		_n_colorspin(_n_color*_n_spin),
-		_n_vrows(2*_n_colorspin/VECLEN),
-		_n_xh( l_info.GetCBLatticeDimensions()[0] ),
-		_n_x( l_info.GetLatticeDimensions()[0] ),
-		_n_y( l_info.GetLatticeDimensions()[1] ),
-		_n_z( l_info.GetLatticeDimensions()[2] ),
-		_n_t( l_info.GetLatticeDimensions()[3] ),
+		_n_colorspin(l_info.GetNumColorSpins()),
 		_halo( l_info )
 	{
 #pragma omp parallel
-		{
 #pragma omp master
-			{
-				// Set the number of threads
-				_n_threads = omp_get_num_threads();
-
-				// ThreadLimits give iteration bounds for a specific thread with a tid.
-				// These are things like min_site, max_site, min_row, max_row etc.
-				// So here I allocate one for each thread.
-				_thread_limits = (ThreadLimits*) MG::MemoryAllocate(_n_threads*sizeof(ThreadLimits), MG::REGULAR);
-			} // omp master: barrier implied
-
-#pragma omp barrier
-
-			// Set the number of threads and break down into SIMD ID and Core ID
-			// This requires knowledge about the order in which threads are assigned.
-			//
-			const int tid = omp_get_thread_num();
-
-			// Decompose tid into site_par_id (parallelism over sites)
-			// and mv_par_id ( parallelism over rows of the matvec )
-			// Order is: mv_par_id + _n_mv_parallel*site_par_id
-
-			// Find minimum and maximum site -- assume
-			// small lattice so no blocking at this point
-			// just linearly divide the sites
-			const int n_sites_cb = _lattice_info.GetNumCBSites();
-			int sites_per_core = n_sites_cb/_n_threads;
-			if( n_sites_cb % _n_threads != 0 ) sites_per_core++;
-			int min_site = tid*sites_per_core;
-			int max_site = MinInt((tid+1)*sites_per_core, n_sites_cb);
-			_thread_limits[tid].min_site = min_site;
-			_thread_limits[tid].max_site = max_site;
-
-
-		} // omp parallel
+		{
+			// Print workloads
+			for (int ncol=1; ncol < 256; ncol*=4) {
+				int blocksize, ld;
+				GetWorkload(ncol, blocksize, ld);
+				MasterLog(INFO, "Lattice with %d spin-colors with %d columns: blocksize %d  and ld %d", _lattice_info.GetNumColorSpins(), ncol, blocksize, ld);
+			}
+		}
 	}
 
 	void CoarseDiracOp::GetWorkloadForDiag(int tid, int& min_site, int& max_site) const {
@@ -513,23 +516,19 @@ namespace MG {
 		// Get how much cache they can gather
 		int cache_size = sysconf(_SC_LEVEL2_CACHE_SIZE)*nthreads;
 
-		// Approximate how many nodes they can hold on cache
+		// Approximate how many nodes they can be hold on cache
 		const int cs = _lattice_info.GetNumColorSpins(), n_neigbors = 2*n_dim, n_faces = 2*n_dim, excess = 2;
 		const std::size_t vol = _lattice_info.GetNumSites();
 		std::size_t max_lat_size = 1;
 		while (true) {
-			int l = 2*max_lat_size;
-			if (l*l*l*l > vol || (l*l*l*l*(cs*cs*(n_neigbors+1)/2 + cs*ncols) + (n_faces - 1)*cs*ncols/2*l*l*l)*sizeof(float)*2 > cache_size * excess)
+			std::size_t l = 2*max_lat_size;
+			if (l*l*l*l > vol || (1.0*l*l*l*l*(cs*cs*(n_neigbors+1)/2 + cs*ncols) + (n_faces - 1)*cs*ncols/2*l*l*l)*sizeof(float)*2 > cache_size * excess)
 				break;
 			max_lat_size = l;
 		}
-		std::size_t cache_vol = std::min(vol/2, max_lat_size*max_lat_size*max_lat_size*max_lat_size/2);
+		std::size_t cache_vol = std::max((std::size_t)1, std::min(vol/2, max_lat_size*max_lat_size*max_lat_size*max_lat_size/2));
 		blocksize = (cache_vol + nthreads - 1) / nthreads;
 		ld = blocksize * nthreads;
-
-		// TEMP!!!!
-		blocksize = 1;
-		ld = nthreads;
 	}
 
 

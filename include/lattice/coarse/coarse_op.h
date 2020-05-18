@@ -12,7 +12,6 @@
 #include "lattice/constants.h"
 #include "lattice/cmat_mult.h"
 #include "lattice/coarse/coarse_types.h"
-#include "lattice/coarse/thread_limits.h"
 #include "lattice/halo.h"
 #include "utils/auxiliary.h"
 #include "coarse_l1_blas.h"
@@ -280,18 +279,6 @@ public:
 	}
 
 	inline
-	IndexType GetNumColor() const {
-		return _n_color;
-	}
-
-	inline
-	IndexType GetNumSpin() const {
-		return _n_spin;
-	}
-
-
-
-	inline
 		SpinorHaloCB& GetSpinorHalo() {
 			return _halo;
 		}
@@ -308,22 +295,7 @@ private:
 	void GetWorkloadForDiag(int tid, int& min_site, int& max_site) const;
 
 	const LatticeInfo& _lattice_info;
-	const IndexType _n_color;
-	const IndexType _n_spin;
 	const IndexType _n_colorspin;
-	const IndexType _n_vrows;
-
-	int _n_threads;
-	ThreadLimits* _thread_limits;
-
-	// These are handy to have around
-	// Scoped to the class. They can be computed on instantiation
-	// as they are essentially in the lattice info.
-	const IndexType _n_xh;
-	const IndexType _n_x;
-	const IndexType _n_y;
-	const IndexType _n_z;
-	const IndexType _n_t;
 
 	mutable  SpinorHaloCB _halo;
 
