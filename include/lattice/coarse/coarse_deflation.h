@@ -154,6 +154,7 @@ namespace MG {
 
 	}
 }
+
 #else
 
 namespace MG {
