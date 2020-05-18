@@ -42,13 +42,12 @@ TEST(CoarseDslash, TestSpeed)
 		CoarseSpinor y_spinor(linfo, ncol);
 		CoarseGauge gauge(linfo);
 
-		const int N_iter =args.iter;
-		const int n_smt= 1 ;
+		const int N_iter = 10;
 
 		double total_time[288][8]; // Timing info for 72 cores x 4 threads
 
 		// Create Coarse Dirac Op.
-		CoarseDiracOp D(linfo,n_smt);
+		CoarseDiracOp D(linfo);
 
 		const int N_dir = 2*n_dim;
 		const int N_sites_cb = linfo.GetNumCBSites();
@@ -114,7 +113,8 @@ TEST(CoarseDslash, TestSpeed)
 			double start_time = omp_get_wtime();
 
 			for(int iter = 0; iter < N_iter; ++iter) {
-				D.unprecOp(y_spinor,gauge,x_spinor,0,LINOP_DAGGER,tid);
+				//D.unprecOp(y_spinor,gauge,x_spinor,0,LINOP_DAGGER,tid);
+				D.M_AD(y_spinor,gauge,x_spinor,0,LINOP_OP,tid);
 			} // iter
 
 			double end_time = omp_get_wtime();
@@ -127,7 +127,7 @@ TEST(CoarseDslash, TestSpeed)
 		double N_dble = static_cast<double>(N);
 		double N_iter_dble = static_cast<double>(N_iter);
 		double N_sites_cb_dble = static_cast<double>(N_sites_cb);
-		double gflops=ncol*N_sites_cb*N_iter_dble*(N_dir*(N_dble*(8*N_dble-2))+(N_dir-1)*2*N)/1.0e9;
+		double gflops=1.0*N_sites_cb*N_iter*(2*N_dir) * N*N*ncol / 1.0e9;
 
 		double min_time=total_time[0][0];
 		double max_time =total_time[0][0];
