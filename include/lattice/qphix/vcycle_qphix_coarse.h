@@ -109,6 +109,7 @@ class VCycleQPhiXCoarse2 :
       CoarseSpinor coarse_delta(_coarse_info, ncol);
       Timer::TimerAPI::stopTimer("VCycleQPhiXCoarse2/norm()/level0");
 
+#ifndef MG_HACK_QPHIX_TRANSFER
       while ( iter < _param.MaxIter) {
         ++iter;
 
@@ -143,7 +144,7 @@ class VCycleQPhiXCoarse2 :
             }
           }
         }
-
+#endif
 
         // Coarsen r
         Timer::TimerAPI::startTimer("VCycleQPhiXCoarse2/R()/level0");
@@ -163,6 +164,7 @@ class VCycleQPhiXCoarse2 :
         // Update solution
         YpeqXVec(*delta,*out_f);
 
+#ifndef MG_HACK_QPHIX_TRANSFER
         // Update residuum
         Timer::TimerAPI::startTimer("VCycleQPhiXCoarse2/M_fine()/level0");
         _M_fine(*t, *delta, LINOP_OP);
@@ -221,6 +223,7 @@ class VCycleQPhiXCoarse2 :
           if ( norm_r[col] >= target[col] ) continueP = true;
         if (!continueP) break;
       }
+#endif
 
       // Convert Back Up to DP
       Timer::TimerAPI::startTimer("VCycleQPhiXCoarse2/convert()/level0");
