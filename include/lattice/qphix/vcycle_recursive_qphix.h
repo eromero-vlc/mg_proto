@@ -44,10 +44,10 @@ public:
 		dummy_vcycle_params.post_smoother_params.VerboseP = false;
 		dummy_vcycle_params.post_smoother_params.Omega = 1.0;
 
-		dummy_vcycle_params.bottom_solver_params.MaxIter= 1;
-		dummy_vcycle_params.bottom_solver_params.NKrylov = 1;
-		dummy_vcycle_params.bottom_solver_params.RsdTarget= 0.1;
-		dummy_vcycle_params.bottom_solver_params.VerboseP = false;
+		dummy_vcycle_params.bottom_solver_params.MaxIter= 100;
+		dummy_vcycle_params.bottom_solver_params.NKrylov = 6;
+		dummy_vcycle_params.bottom_solver_params.RsdTarget= 1e-6;
+		dummy_vcycle_params.bottom_solver_params.VerboseP = true;
 
 		dummy_vcycle_params.cycle_params.MaxIter=1;
 		dummy_vcycle_params.cycle_params.RsdTarget=0.1;
