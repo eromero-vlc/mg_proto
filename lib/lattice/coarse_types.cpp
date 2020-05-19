@@ -36,13 +36,25 @@ namespace MG {
 		// Extract the even factors for each dimension
 		IndexArray original_dim(dim);
 		IndexArray dime;
-		for (unsigned int i=0; i<dime.size(); i++) {
-			dime[i] = 1;
-			while (dim[i] % 2 == 0) {
-				dim[i] /= 2;
-				dime[i] *= 2;
+		std::fill_n(dime.begin(), dime.size(), 1); // init dime to all ones
+		while (true) {
+			bool all_dim_elemns_div_by_two = true;
+			for (unsigned int i=0; i<dim.size(); i++)
+				all_dim_elemns_div_by_two &= (dim[i] % 2 == 0 | dim[i] == 1);
+			if (!all_dim_elemns_div_by_two) break;
+
+			bool some_dim_elemn_greather_than_one = false;
+			for (unsigned int i=0; i<dim.size(); i++)
+				some_dim_elemn_greather_than_one |= (dim[i] > 1);
+			if (!some_dim_elemn_greather_than_one) break;
+
+			for (unsigned int i=0; i<dim.size(); i++) {
+				if (dim[i] > 1) {
+					dim[i] /= 2;
+					dime[i] *= 2;
+				}
 			}
-		}	
+		}
 
 		// If no remaining volume, take a factor of two
 		vol = Volume(dim);
@@ -130,11 +142,11 @@ namespace MG {
 	} 
 
 	CBPermutation cache_optimal_permutation(const LatticeInfo& info) {
-		using reg = std::tuple<const LatticeInfo&, CBPermutation>;
+		using reg = std::tuple<const LatticeInfo, CBPermutation>;
 		static std::vector<reg> _perms;
 
 		// Return the permutation if it was done before
-		for (auto it=_perms.begin(); it != _perms.end(); it++) {
+		for (auto it=_perms.begin(); it != _perms.end(); ++it) {
 			if (std::get<0>(*it).isCompatibleWith(info)) {
 				return std::get<1>(*it);
 			}
@@ -150,6 +162,9 @@ namespace MG {
 
 		std::vector<bool> visited(info.GetNumSites(), false);
 		IndexType icb[2] = {0,0};
+		MasterLog(INFO, "Perm for lattice %d %d %d %d", info.GetLatticeDimensions()[0], info.GetLatticeDimensions()[1], info.GetLatticeDimensions()[2], info.GetLatticeDimensions()[3]);
+		std::size_t fails[2] = {0, 0};
+		IndexArray last_coor[2];
 		for (std::size_t i=0; i<info.GetNumSites(); ++i) {
 			// Check that p is a permutation over the sites
 			assert(p[i] >= 0 && p[i] < info.GetNumSites() && !visited[p[i]]);
@@ -158,8 +173,21 @@ namespace MG {
 			// Get the CB indices of the site
 			IndexArray c;
 			IndexToCoords(p[i], info.GetLatticeDimensions(), c);
+			//MasterLog(INFO, "Perm at %d = %d %d %d %d", (int)i, c[0], c[1], c[2], c[3]);
 			IndexType cbsite, cb;
 			CoordsToCBIndex(c, info.GetLatticeDimensions(), info.GetLatticeOrigin(), cb, cbsite);
+
+			// Check
+			if (i >= 2) {
+				for(int j=0; j<c.size(); ++j) {
+					IndexType dj = info.GetLatticeDimensions()[j];
+					if (std::min((dj + c[j] - last_coor[cb][j]) % dj, (last_coor[cb][j] - c[j]  + dj) % dj) > 1) {
+						fails[cb]++;
+						break;
+					}
+				}
+			}
+			last_coor[cb] = c;
 
 			// Site with CB index and parity cb is going to be stored at position icb[cb]
 			(*s)[cb][cbsite] = icb[cb]++;
@@ -167,6 +195,7 @@ namespace MG {
 			// Reverse map
 			(*s)[2+cb][ (*s)[cb][cbsite] ] = cbsite;
 		}
+		MasterLog(INFO, "Perm fails: %d %d", (int)fails[0], (int)fails[1]);
 
 		// Add it to the collection of permutations
 		_perms.emplace_back(std::make_tuple(info, s));
