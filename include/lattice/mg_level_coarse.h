@@ -60,23 +60,28 @@ namespace MG {
 
     fine_level.null_solver = std::make_shared<typename CoarseLevelT::Solver>(M_fine, params);
 
-    // Zero RHS
+    // Zero RHS and randomize the initial guess
     const LatticeInfo& fine_info = *(fine_level.info);
-
-    CoarseSpinor b(fine_info);
-    ZeroVec(b);
-
-    // Generate the vectors
     int num_vecs = p.n_vecs[fine_level_id];
+
+    CoarseSpinor b(fine_info, num_vecs);
+    ZeroVec(b);
+    CoarseSpinor x(fine_info, num_vecs);
+    Gaussian(x);
+
+    // Solve the linear systems
+    std::vector<LinearSolverResults> res = (*(fine_level.null_solver))(x,b, ABSOLUTE);
+    assert(res.size() == num_vecs);
+
+    // Generate individual vectors
+    std::size_t num_elemns = fine_info.GetNumSites() * fine_info.GetNumColorSpins() * 2;
+    std::vector<float> aux(num_elemns * num_vecs);
+    GetColumns(x, SUBSET_ALL, &aux[0], num_elemns);
     fine_level.null_vecs.resize(num_vecs);
     for(int k=0; k < num_vecs; ++k) {
       fine_level.null_vecs[k] = std::make_shared<CoarseSpinor>(fine_info);
-
-        Gaussian(*(fine_level.null_vecs[k]));
-      std::vector<LinearSolverResults> res = (*(fine_level.null_solver))((*fine_level.null_vecs[k]),b, ABSOLUTE);
-      assert(res.size() == 1);
-      MasterLog(INFO, "Level %d: Solver Took: %d iterations",fine_level_id, res[0].n_count);
-
+      PutColumns(&aux[num_elemns * k], num_elemns, *(fine_level.null_vecs[k]), SUBSET_ALL);
+      MasterLog(INFO, "Level %d: Solver Took: %d iterations",fine_level_id, res[k].n_count);
     }
 
     IndexArray blocked_lattice_dims;
