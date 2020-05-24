@@ -26,7 +26,7 @@ namespace MG {
 				for (unsigned int i = 0; i < n; ++i) {
 					const float* __restrict__ x0 = &x[i*M];
 					float* __restrict__ y0 = &y[i*M*8];
-#pragma omp simd aligned(x0,y0:sizeof(float)*4)
+#pragma omp simd aligned(x0:8*4) aligned(y0:8*4*8)
 					for (unsigned int j = 0; j < M; ++j)
 						y0[j] = x0[j];
 				}
@@ -112,6 +112,7 @@ namespace MG {
 				} else {
 					// New fashion: output = [ gauge_links[0] gauge_links[1] ...] * [ neigh_spinors[0]; neigh_spinors[1]; ...]
 					if (initop == zero) {
+#pragma omp simd aligned(output:8*4)
 						for(int i=0; i < 2*N_colorspin*ncol; ++i) {
 							output[i] = 0.0;
 						}
@@ -513,6 +514,7 @@ namespace MG {
 		const std::size_t nthreads = 1;
 #endif
 
+#ifdef MG_HACK_HILBERT_CURVE
 		// Get how much cache they can gather
 		int cache_size = sysconf(_SC_LEVEL2_CACHE_SIZE)*nthreads;
 
@@ -527,6 +529,9 @@ namespace MG {
 			max_lat_size = l;
 		}
 		std::size_t cache_vol = std::max((std::size_t)1, std::min(vol/2, max_lat_size*max_lat_size*max_lat_size*max_lat_size/2));
+#else
+		std::size_t cache_vol = _lattice_info.GetNumSites()/2;
+#endif
 		blocksize = (cache_vol + nthreads - 1) / nthreads;
 		ld = blocksize * nthreads;
 	}

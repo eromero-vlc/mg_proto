@@ -118,6 +118,11 @@ namespace {
 			const std::complex<float> *b, LAPACK_BLASINT *ldb,
 			std::complex<float> *beta, std::complex<float> *c,
 			LAPACK_BLASINT *ldc);
+        extern "C" void cgemv_(const char *transa, LAPACK_BLASINT *m, LAPACK_BLASINT *n,
+			const std::complex<float> *alpha, const std::complex<float> *a,
+			LAPACK_BLASINT *lda, const std::complex<float> *x,
+			LAPACK_BLASINT *incx, const std::complex<float> *beta,
+			std::complex<float> *y, LAPACK_BLASINT *incy);
 #else
 	#include <cblas.h>
 	CBLAS_TRANSPOSE toTrans(const char *trans) {
@@ -144,6 +149,15 @@ void XGEMM(const char *transa, const char *transb, LAPACK_BLASINT m,
 	// 	}
 	// 	return;
 	// }
+	if (n == 1) {
+		int mA; int nA;
+		if (*transa == 'n' || *transa == 'N') mA = m, nA = k;
+		else mA = k, nA = m;
+		int incb = ((*transb == 'n' || *transb == 'N') ? 1 : ldb);
+		int one = 1;
+		cgemv_(transa, &mA, &nA, &alpha, a, &lda, b, &incb, &beta, c, &one);
+		return;
+	}
 #ifndef MGPROTO_USE_CBLAS
 	cgemm_(transa, transb, &m, &n, &k, &alpha, a, &lda, b, &ldb, &beta, c, &ldc);
 #else

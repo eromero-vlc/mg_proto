@@ -32,15 +32,16 @@ namespace MG {
 				*begin = i;
 			return;
 		}
+		//assert(dim[J] > 1);
 
 		// Extract the even factors for each dimension
 		IndexArray original_dim(dim);
 		IndexArray dime;
 		std::fill_n(dime.begin(), dime.size(), 1); // init dime to all ones
 		while (true) {
-			bool all_dim_elemns_div_by_two = true;
+			bool all_dim_elemns_div_by_two = (dim[J] > 1);
 			for (unsigned int i=0; i<dim.size(); i++)
-				all_dim_elemns_div_by_two &= (dim[i] % 2 == 0 | dim[i] == 1);
+				all_dim_elemns_div_by_two &= (dim[i] % 2 == 0);
 			if (!all_dim_elemns_div_by_two) break;
 
 			bool some_dim_elemn_greather_than_one = false;
@@ -103,7 +104,7 @@ namespace MG {
 				// If hitting a lattice wall, the current direction in this dimension, and try the next dimension
 				dir[order[next_direction]] *= -1;
 			}
-			if (next_direction < 0) next_direction = 0;
+			if (next_direction < 0) {assert(i==vol-1); next_direction = 0;}
 
 			// Figure out the next move the entry point
 			unsigned int this_J;
@@ -111,15 +112,19 @@ namespace MG {
 				// If this is not the final move, move the entry point along the dimension
 				// 'next_direction' if the destination still touches the exit face; otherwise
 				// choose another dimension
-				if (entry[order[next_direction]] == dir[next_direction] || order.size() == 1) {
+				if (entry[order[next_direction]] == dir[order[next_direction]] || order.size() == 1) {
 					this_J = order[next_direction];
 				} else {
-					this_J = order[next_direction != order.size()-1 ? order.size()-1 : order.size()-2];
+					this_J = order[(order.size() + next_direction - 1) % order.size()];
 				}
 			} else {
 				// At the final site, move the entry point to align with the original entry point
-				for (this_J=0; this_J<order.size() && exit[order[this_J]] == entry[order[this_J]]; this_J++);
-				this_J = order[this_J < order.size() ? this_J : 0];
+				if (exit[J] != entry[J] || order.size() == 1) {
+					this_J = J;
+				} else {
+					for (this_J=1; this_J<order.size() && exit[order[this_J]] == entry[order[this_J]]; this_J++);
+					this_J = order[this_J < order.size() ? this_J : 0];
+				}
 			}
 
 			// Generate permutation for the sublattice
@@ -133,8 +138,27 @@ namespace MG {
 				*begin = CoordsToIndex(c, original_dim);
 			}
 
+			// Check boundaries
+			//IndexArray prev;
+			//if (i == 0) prev = coor; else IndexToCoords(*(begin-vol_dime-1), original_dim, prev);
+			//IndexArray prev_next;
+			//IndexToCoords(*(begin-vol_dime), original_dim, prev_next);
+			//for(int j=0, distinct_coors=0; j<dim.size(); ++j) {
+			//	IndexType distj = std::min((original_dim[j] + prev[j] - prev_next[j]) % original_dim[j], (prev_next[j] - prev[j]  + original_dim[j]) % original_dim[j]);
+			//	assert(distj < 2);
+			//	if (distj == 1) distinct_coors++;
+			//	assert(distinct_coors < 3);
+			//}
+
 			// Move the entry point to the exit point
 			entry[this_J] *= -1;
+
+			// if (i == vol-1) {
+			// 	for(int j=0; j<dim.size(); ++j) {
+			// 		assert(entry[j] == exit[j]);
+			// 	}
+			// }
+
 			// Move the site and the entry point along 'next_direction'
 			coor[order[next_direction]] += dir[order[next_direction]];
 			entry[order[next_direction]] *= -1;
@@ -157,43 +181,54 @@ namespace MG {
 		for (int i=0; i<4; i++) (*s)[i].resize(info.GetNumCBSites());
 
 		// Generate a path over all sites on the lattice
-		std::vector<IndexType> p(info.GetNumSites());
-		gen_hilbert_curve(p.begin(), info.GetLatticeDimensions(), {1,1,1,1}, 0);
+		IndexArray cb_lattice_size(info.GetLatticeDimensions());
+		{
+			int icb=0;
+			for (icb=0; icb<n_dim && cb_lattice_size[icb] % 2 != 0; ++icb);
+			assert(icb < n_dim);
+			cb_lattice_size[icb] /= 2; // Size of checkberboarded lattice
+		}
+		int J = 0;
+		for (int i=0; i<n_dim; i++) if (cb_lattice_size[i] > cb_lattice_size[J]) J=i;
 
-		std::vector<bool> visited(info.GetNumSites(), false);
+		std::vector<IndexType> p(info.GetNumSites()/2);
+		gen_hilbert_curve(p.begin(), cb_lattice_size, {1,1,1,1}, J);
+
+		std::vector<bool> visited(info.GetNumSites()/2, false);
 		IndexType icb[2] = {0,0};
 		MasterLog(INFO, "Perm for lattice %d %d %d %d", info.GetLatticeDimensions()[0], info.GetLatticeDimensions()[1], info.GetLatticeDimensions()[2], info.GetLatticeDimensions()[3]);
 		std::size_t fails[2] = {0, 0};
 		IndexArray last_coor[2];
-		for (std::size_t i=0; i<info.GetNumSites(); ++i) {
+		for (std::size_t i=0; i<info.GetNumSites()/2; ++i) {
 			// Check that p is a permutation over the sites
-			assert(p[i] >= 0 && p[i] < info.GetNumSites() && !visited[p[i]]);
+			assert(p[i] >= 0 && p[i] < info.GetNumSites()/2 && !visited[p[i]]);
 			visited[p[i]] = true;
 
-			// Get the CB indices of the site
-			IndexArray c;
-			IndexToCoords(p[i], info.GetLatticeDimensions(), c);
-			//MasterLog(INFO, "Perm at %d = %d %d %d %d", (int)i, c[0], c[1], c[2], c[3]);
-			IndexType cbsite, cb;
-			CoordsToCBIndex(c, info.GetLatticeDimensions(), info.GetLatticeOrigin(), cb, cbsite);
-
-			// Check
-			if (i >= 2) {
-				for(int j=0; j<c.size(); ++j) {
-					IndexType dj = info.GetLatticeDimensions()[j];
-					if (std::min((dj + c[j] - last_coor[cb][j]) % dj, (last_coor[cb][j] - c[j]  + dj) % dj) > 1) {
-						fails[cb]++;
-						break;
+			for (int cb=0; cb<2; cb++) {
+				// Get the coordinates of the site
+				// Check
+				IndexArray c;
+				CBIndexToCoords(p[i], cb, info.GetLatticeDimensions(), info.GetLatticeOrigin(), c);
+				if (i >= 1) {
+					for(int j=0, num_dist_coor=0; j<c.size(); ++j) {
+						IndexType dj = info.GetLatticeDimensions()[j];
+						int dist_j = std::min((dj + c[j] - last_coor[cb][j]) % dj, (last_coor[cb][j] - c[j]  + dj) % dj);
+						if (dist_j > 0) num_dist_coor++;
+						if (dist_j > 1 || num_dist_coor > 2) {
+							fails[cb]++;
+							break;
+						}
 					}
 				}
+				last_coor[cb] = c;
+
+				// Site with CB index and parity cb is going to be stored at position icb[cb]
+				IndexType cbsite = p[i];
+				(*s)[cb][cbsite] = icb[cb]++;
+
+				// Reverse map
+				(*s)[2+cb][ (*s)[cb][cbsite] ] = cbsite;
 			}
-			last_coor[cb] = c;
-
-			// Site with CB index and parity cb is going to be stored at position icb[cb]
-			(*s)[cb][cbsite] = icb[cb]++;
-
-			// Reverse map
-			(*s)[2+cb][ (*s)[cb][cbsite] ] = cbsite;
 		}
 		MasterLog(INFO, "Perm fails: %d %d", (int)fails[0], (int)fails[1]);
 
