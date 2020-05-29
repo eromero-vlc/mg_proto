@@ -34,7 +34,7 @@ TEST(CoarseDslash, TestSpeed)
 	MockNodeInfo mock_node(pe_dims, pe_coords);
 	//LatticeInfo linfo(latdims, 2, args.fine_colors, mock_node);
 	LatticeInfo linfo(latdims, 2, 12, mock_node);
-	std::vector<int> ncols = {1, 2, 4, 5, 16, 64, 256};
+	std::vector<int> ncols = {1, 2, 4, 16, 64, 256};
 	for (int ncoli = 0; ncoli < ncols.size(); ncoli++) {
 		int ncol = ncols[ncoli];
 

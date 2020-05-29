@@ -698,6 +698,7 @@ namespace {
 
 				using b_type = xsimd::batch<T,V>;
 
+				//unsigned int Aidx=0;
 				for (unsigned int row0=0; row0+BM <= M; row0+=BM) {
 					for (unsigned int col0=0; col0+BN <= N; col0+=BN) {
 						b_type yr[BM*BN/V];
@@ -709,24 +710,37 @@ namespace {
 							}
 						}
 
-						unsigned int Aidx = 0;
 						for(unsigned int col=0,col1=col0+d; col < BN/V; ++col,col1+=V) { 
 							for (unsigned int mu=0; mu < 8; ++mu) {
+								#pragma GCC unroll 4
+								#pragma GCC ivdep
 								for (unsigned int k=0; k < M; ++k) {
 									b_type xr, xi;
 									xr.load_aligned(&x[mu][ (k*ld + col1)*2   ]);
 									xi.load_aligned(&x[mu][ (k*ld + col1)*2+V ]);
+									// Real
 									for(unsigned int row=0,row1=row0; row < BM; ++row,++row1) { 
-										//unsigned int Aidx = mu*ldA*ldA + row1 + k*ldA, Aidxr = Aidx*2, Aidxi = Aidxr+1;
-										unsigned int Aidxr = Aidx*2, Aidxi = Aidxr+1; ++Aidx;
+										unsigned int Aidx = mu*ldA*ldA + row1 + k*ldA, Aidxr = Aidx*2, Aidxi = Aidxr+1;
+										//unsigned int Aidxr = Aidx*2, Aidxi = Aidxr+1; ++Aidx;
 										b_type Ar(A[Aidxr]), Ai(A[Aidxi]);
 										if (sign > 0) {
 											//yr[row + col*BM] += A[Aidxr] * xr - A[Aidxi] * xi;
 											yr[row + col*BM] = xsimd::fma(Ar, xr, xsimd::fnma(Ai, xi, yr[row + col*BM]));
-											yi[row + col*BM] = xsimd::fma(Ai, xr, xsimd::fma (Ar, xi, yi[row + col*BM]));
 										} else {
 											//yr[row + col*BM] -= A[Aidxr] * xr - A[Aidxi] * xi;
 											yr[row + col*BM] = xsimd::fnma(Ar, xr, xsimd::fma(Ai, xi, yr[row + col*BM]));
+										}
+									}
+									// Imag
+									for(unsigned int row=0,row1=row0; row < BM; ++row,++row1) { 
+										unsigned int Aidx = mu*ldA*ldA + row1 + k*ldA, Aidxr = Aidx*2, Aidxi = Aidxr+1;
+										//unsigned int Aidxr = Aidx*2, Aidxi = Aidxr+1; ++Aidx;
+										b_type Ar(A[Aidxr]), Ai(A[Aidxi]);
+										if (sign > 0) {
+											//yr[row + col*BM] += A[Aidxr] * xr - A[Aidxi] * xi;
+											yi[row + col*BM] = xsimd::fma(Ai, xr, xsimd::fma (Ar, xi, yi[row + col*BM]));
+										} else {
+											//yr[row + col*BM] -= A[Aidxr] * xr - A[Aidxi] * xi;
 											yi[row + col*BM] = xsimd::fnma(Ai, xr, xsimd::fnma (Ar, xi, yi[row + col*BM]));
 										}
 									}
@@ -784,7 +798,7 @@ namespace {
 				const T* const x[8]) {
 		int ncols0 = ncols;
 		while (ncols >= V) {
-			constexpr unsigned int BM = (V == 16 ? 12 : 5);
+			constexpr unsigned int BM = (V == 16 ? 12 : 3);
 			if (alpha > 0) SimdBlas<M,V,V,BM,V, 1,M>::fun(y, A, x, ncols0-ncols, ncols0);
 			else           SimdBlas<M,V,V,BM,V,-1,M>::fun(y, A, x, ncols0-ncols, ncols0);
 			ncols -= V;
@@ -921,6 +935,7 @@ void CMatMultCoeffAddNaive(float beta,
 	assert(alpha == -1.0 || alpha == 1.0);
 	//CMatMultNaiveT<12,CMatMultNaiveTT>(ncol, (std::complex<float>*)y, (const std::complex<float>*)A[0], (int)alpha, (const std::complex<const float>* const*)x.data());
 	CMatMultRowMajor<12>(ncol, (std::complex<float>*)y, (const std::complex<float>*)A[0], (int)alpha, (const std::complex<const float>* const*)x.data());
+	assert(N==12);
 }
 
 
