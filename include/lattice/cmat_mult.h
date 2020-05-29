@@ -86,6 +86,14 @@ void CMatMultAddNaive(float* y, const float* A, const float* x, IndexType N, Ind
 void CMatMultCoeffAddNaive(float beta, float* y,  float alpha, const float* A, const float* x, IndexType N, IndexType ncol=1);
 
 void CMatMultCoeffAddNaive(float beta,
+		float* y,
+		float alpha,
+		const std::array<const float*,8> A,
+		const std::array<const float*,8> x,
+		IndexType N,
+		IndexType ncol);
+
+void CMatMultCoeffAddNaive(float beta,
 		std::complex<float>* y,
 		IndexType ldy,
 		float alpha,

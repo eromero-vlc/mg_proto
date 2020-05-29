@@ -31,6 +31,8 @@
 
 #cmakedefine MG_USE_PRIMME
 
+#cmakedefine MG_USE_XSIMD
+
 #cmakedefine MG_HACK_QPHIX_TRANSFER
 
 #cmakedefine MG_HACK_HILBERT_CURVE

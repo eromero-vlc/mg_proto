@@ -42,7 +42,7 @@ else()
 endif()
 
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_EXTENSIONS OFF)
 # list(APPEND CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} -O3)
 
@@ -205,6 +205,13 @@ endif(MG_USE_PRIMME)
 find_package(BLAS REQUIRED)
 LIST(APPEND EXT_LIBS ${BLAS_LIBRARIES})
 LIST(APPEND EXT_LIBS ${BLAS_LIBRARIES_EXTRA})
+
+#XSIMD
+set(MG_USE_XSIMD OFF CACHE BOOL "build accelerated code")
+set(XSIMD_HOME "" CACHE PATH "path to xsimd")
+if(MG_USE_XSIMD)
+  include_directories(SYSTEM ${XSIMD_HOME}/include)
+endif()
 
 # Add a config.h like file to pass some of the
 # CMake settings to the source

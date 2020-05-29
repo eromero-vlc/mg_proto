@@ -49,11 +49,7 @@ namespace MG {
 		typedef std::array<const float*,8> Gauge_links;
 
 		Neigh_spinors get_neigh_spinors(const HaloContainer<CoarseSpinor>& halo, const CoarseSpinor& in, int target_cb, int cbsite) {
-			Neigh_spinors neigh_spinor;
-			for (int mu=0; mu<8; mu++) {
-				neigh_spinor[mu] = GetNeighborDir<CoarseSpinor,CoarseAccessor>(halo, in, mu, target_cb, cbsite, true);
-			}
-			return neigh_spinor;
+			return GetNeighborDirs<CoarseSpinor,CoarseAccessor>(halo, in, target_cb, cbsite, true);
 		}
 
 		Gauge_links get_gauge_links(const CoarseGauge& in, int target_cb, int cbsite) {
@@ -105,10 +101,13 @@ namespace MG {
 			}
 
 			if (dagger == LINOP_OP) {
+				// TEMP!!!!
+				input = nullptr;
 				if (input == nullptr) {
 					// Old fashion: output = \sum_mu gauge_links[mu] * neigh_spinors[mu]
-					for(int mu=0; mu < 8; ++mu)
-						CMatMultCoeffAddNaive(initop == zero && mu == 0 ? 0.0 : 1.0, output, alpha, gauge_links[mu], neigh_spinors[mu], N_colorspin, ncol);
+					// for(int mu=0; mu < 8; ++mu)
+					// 	CMatMultCoeffAddNaive(initop == zero && mu == 0 ? 0.0 : 1.0, output, alpha, gauge_links[mu], neigh_spinors[mu], N_colorspin, ncol);
+					CMatMultCoeffAddNaive(initop == zero ? 0.0 : 1.0, output, alpha, gauge_links, neigh_spinors, N_colorspin, ncol);
 				} else {
 					// New fashion: output = [ gauge_links[0] gauge_links[1] ...] * [ neigh_spinors[0]; neigh_spinors[1]; ...]
 					if (initop == zero) {
