@@ -112,13 +112,13 @@ namespace MG {
                 Timer::TimerAPI::startTimer("VCycleCoarse/update/level" + std::to_string(level));
                 // Update solution
                 // out += delta;
-                YpeqxVec(delta, out);
+                YpeqXVec(delta, out);
 
                 // Update residuum
                 _M_fine(tmp, delta, LINOP_OP);
 
                 // r -= tmp;
-                YmeqxVec(tmp, r);
+                YmeqXVec(tmp, r);
                 Timer::TimerAPI::stopTimer("VCycleCoarse/update/level" + std::to_string(level));
 
                 if (_param.VerboseP) {
@@ -168,12 +168,12 @@ namespace MG {
                 Timer::TimerAPI::startTimer("VCycleCoarse/update/level" + std::to_string(level));
                 // Update solution
                 //			out += delta;
-                YpeqxVec(delta, out);
+                YpeqXVec(delta, out);
 
                 // Update residuum
                 _M_fine(tmp, delta, LINOP_OP);
                 // r -= tmp;
-                YmeqxVec(tmp, r);
+                YmeqXVec(tmp, r);
                 Timer::TimerAPI::stopTimer("VCycleCoarse/update/level" + std::to_string(level));
 
                 if (_param.VerboseP) {
@@ -206,10 +206,10 @@ namespace MG {
                 Timer::TimerAPI::startTimer("VCycleCoarse/update/level" + std::to_string(level));
                 // Update full solution
                 // out += delta;
-                YpeqxVec(delta, out);
+                YpeqXVec(delta, out);
                 _M_fine(tmp, delta, LINOP_OP);
                 // r -= tmp;
-                YmeqxVec(tmp, r);
+                YmeqXVec(tmp, r);
                 norm2_r = Norm2Vec(r);
                 Timer::TimerAPI::stopTimer("VCycleCoarse/update/level" + std::to_string(level));
 
@@ -374,13 +374,13 @@ namespace MG {
 
                 // Update solution
                 // out += delta;
-                YpeqxVec(delta, out);
+                YpeqXVec(delta, out);
 
                 // Update unprec residuum
                 _M_fine.unprecOp(tmp, delta, LINOP_OP);
 
                 // r -= tmp;
-                YmeqxVec(tmp, r);
+                YmeqXVec(tmp, r);
 
                 if (_param.VerboseP) {
                     std::vector<double> norm2_pre_presmooth = Norm2Vec(r);
@@ -418,12 +418,12 @@ namespace MG {
 
                 // Update solution
                 //			out += delta;
-                YpeqxVec(delta, out);
+                YpeqXVec(delta, out);
 
                 // Update residuum
                 _M_fine.unprecOp(tmp, delta, LINOP_OP);
                 // r -= tmp;
-                YmeqxVec(tmp, r);
+                YmeqXVec(tmp, r);
 
                 if (_param.VerboseP) {
                     std::vector<double> norm2_pre_postsmooth = Norm2Vec(r);
@@ -451,10 +451,10 @@ namespace MG {
 
                 // Update full solution
                 // out += delta;
-                YpeqxVec(delta, out);
+                YpeqXVec(delta, out);
                 _M_fine.unprecOp(tmp, delta, LINOP_OP);
                 // r -= tmp;
-                YmeqxVec(tmp, r);
+                YmeqXVec(tmp, r);
                 norm2_r = Norm2Vec(r);
 
                 if (_param.VerboseP) {
@@ -631,11 +631,11 @@ namespace MG {
                                                 std::to_string(level));
                     // Update solution
                     // out += delta;
-                    YpeqxVec(*delta, out, subset);
+                    YpeqXVec(*delta, out, subset);
                     // Update prec residuum
                     _M_fine(*tmp, *delta, LINOP_OP);
                     // r -= tmp;
-                    YmeqxVec(*tmp, *r, subset);
+                    YmeqXVec(*tmp, *r, subset);
                     Timer::TimerAPI::stopTimer("VCycleCoarseEO2/update/level" +
                                                std::to_string(level));
 
@@ -692,7 +692,7 @@ namespace MG {
                 _Transfer.P(*coarse_delta, ODD, *delta);
                 Timer::TimerAPI::stopTimer("VCycleCoarseEO2/prolongateTo/level" +
                                            std::to_string(level));
-                YpeqxVec(*delta, out, subset);
+                YpeqXVec(*delta, out, subset);
 
                 if (iter < _param.MaxIter || _param.RsdTarget > 0.0 || _param.VerboseP ||
                     _antepost_smoother || _post_smoother._params.MaxIter > 0) {
@@ -700,7 +700,7 @@ namespace MG {
                                                 std::to_string(level));
                     _M_fine(*tmp, *delta, LINOP_OP);
                     // r -= tmp;
-                    YmeqxVec(*tmp, *r, subset);
+                    YmeqXVec(*tmp, *r, subset);
                     Timer::TimerAPI::stopTimer("VCycleCoarseEO2/update/level" +
                                                std::to_string(level));
 
@@ -739,10 +739,10 @@ namespace MG {
                                                 std::to_string(level));
                     // Update full solution
                     // out += delta;
-                    YpeqxVec(*delta, out, subset);
+                    YpeqXVec(*delta, out, subset);
                     _M_fine(*tmp, *delta, LINOP_OP);
                     // r -= tmp;
-                    YmeqxVec(*tmp, *r, subset);
+                    YmeqXVec(*tmp, *r, subset);
                     norm2_r = Norm2Vec(*r, subset);
                     Timer::TimerAPI::stopTimer("VCycleCoarseEO2/update/level" +
                                                std::to_string(level));

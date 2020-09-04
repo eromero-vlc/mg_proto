@@ -498,7 +498,7 @@ namespace MG {
                  const CBSubset &subset) {
         AxpyVecT(alpha, x, y, subset);
     }
-    void YpeqxVec(const CoarseSpinor &x, CoarseSpinor &y, const CBSubset &subset) {
+    void YpeqXVec(const CoarseSpinor &x, CoarseSpinor &y, const CBSubset &subset) {
         const LatticeInfo &x_info = x.GetInfo();
         const LatticeInfo &y_info = y.GetInfo();
         AssertCompatible(x_info, y_info);
@@ -528,7 +528,7 @@ namespace MG {
         } // End of Parallel for region
     }
 
-    void YmeqxVec(const CoarseSpinor &x, CoarseSpinor &y, const CBSubset &subset) {
+    void YmeqXVec(const CoarseSpinor &x, CoarseSpinor &y, const CBSubset &subset) {
         const LatticeInfo &x_info = x.GetInfo();
         const LatticeInfo &y_info = y.GetInfo();
         AssertCompatible(x_info, y_info);
