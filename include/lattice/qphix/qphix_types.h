@@ -121,8 +121,8 @@ namespace MG {
         QPhiXSpinorT(const QPhiXSpinorT<FT> &spinor, unsigned int start, unsigned int end)
             : _info(spinor._info)
         {
-            assert(start <= spinor.GetNCol());
-            assert(end <= spinor.GetNCol());
+            assert(start <= (unsigned int)spinor.GetNCol());
+            assert(end <= (unsigned int)spinor.GetNCol());
             for (unsigned int col = start; col < end; ++col)
                 _data.emplace_back(spinor._data[col]); 
         }

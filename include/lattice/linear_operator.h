@@ -210,6 +210,9 @@ namespace MG {
          */
 
         void operator()(Spinor &out, const Spinor &in, IndexType type = LINOP_OP) const override {
+            (void)out;
+            (void)in;
+            (void)type;
             throw std::runtime_error("Implicit operator! operator() is not available!");
         }
 

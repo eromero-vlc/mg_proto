@@ -68,7 +68,6 @@ namespace MG {
 
                         // Find the fine site
                         const CBSite &fine_cbsite = block_sitelist[fine_site_idx];
-                        const int fine_site = (rb[fine_cbsite.cb].siteTable())[fine_cbsite.site];
 
                         // Upper components
                         for (int spin = 0; spin < 2; ++spin) {
@@ -172,8 +171,6 @@ namespace MG {
 
             const int num_coarse_cbsites = out.GetInfo().GetNumCBSites();
 
-            const int num_coarse_colorspin = 2 * num_coarse_color;
-
             // Sanity check. The number of sites in the coarse spinor
             // Has to equal the number of blocks
             //  assert( n_checkerboard*num_coarse_cbsites == static_cast<const int>(blocklist.size()) );
@@ -268,8 +265,6 @@ namespace MG {
             IndexType ncol = fine_in.GetNCol();
 
             const int num_coarse_cbsites = out.GetInfo().GetNumCBSites();
-
-            const int num_coarse_colorspin = 2 * num_coarse_color;
 
             // Sanity check. The number of sites in the coarse spinor
             // Has to equal the number of blocks

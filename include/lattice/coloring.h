@@ -57,7 +57,6 @@ namespace MG {
         void GetProbingVectors(Spinor &out, unsigned int spincolorcolor0) const {
             IndexType num_cbsites = _info->GetNumCBSites();
             IndexType num_colorspin = _info->GetNumColorSpins();
-            IndexType num_color = _info->GetNumColors();
             IndexType num_spin = _info->GetNumSpins();
             CBSubset subset = SUBSET_ALL;
 
@@ -66,7 +65,7 @@ namespace MG {
 
             ZeroVec(out);
 #pragma omp parallel for collapse(3) schedule(static)
-            for (unsigned int col = 0; col < ncol; ++col) {
+            for (unsigned int col = 0; col < (unsigned int)ncol; ++col) {
                 for (int cb = subset.start; cb < subset.end; ++cb) {
                     for (int cbsite = 0; cbsite < num_cbsites; ++cbsite) {
                         unsigned int color = (spincolorcolor0 + col) / num_colorspin;

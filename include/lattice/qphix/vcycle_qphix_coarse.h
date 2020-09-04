@@ -552,6 +552,7 @@ namespace MG {
         std::vector<LinearSolverResults>
         operator()(QPhiXSpinorF &out_f, const QPhiXSpinorF &in_f, ResiduumType resid_type = RELATIVE,
                    InitialGuess guess = InitialGuessNotGiven) const override {
+            (void)guess;
 
             assert(out_f.GetNCol() == in_f.GetNCol());
             IndexType ncol = out_f.GetNCol();
@@ -824,9 +825,7 @@ namespace MG {
               _param(param),
               _Transfer(my_blocks, vecs),
               _antepost_smoother(nullptr),
-              _postpre_smoother(nullptr) {
-            int level = _M_fine.GetLevel();
-        }
+              _postpre_smoother(nullptr) {}
 
         void SetAntePostSmoother(const LinearSolver<QPhiXSpinorF> *s) { _antepost_smoother = s; }
         void SetPostPreSmoother(const LinearSolver<QPhiXSpinorF> *s) { _postpre_smoother = s; }
