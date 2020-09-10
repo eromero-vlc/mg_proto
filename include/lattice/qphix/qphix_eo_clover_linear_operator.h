@@ -365,6 +365,18 @@ namespace MG {
 
         const LatticeInfo &GetInfo(void) const override { return _info; }
 
+        /**
+         * Return whether the operator is Hermitian, M = M^H
+         */
+
+        bool isHermitian() const override { return false; };
+
+        /**
+         * Return whether the operator is \gamma_5-Hermitian, \gamma_5*M*\gamma_5 = M^H
+         */
+
+        bool isg5Hermitian() const override { return true; };
+
         // Apply a single direction of Dslash -- used for coarsening
         // Coarsening is done as per the unprec op.
         void DslashDir(Spinor &spinor_out, const Spinor &spinor_in, const IndexType dir) const {

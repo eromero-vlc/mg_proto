@@ -13,6 +13,7 @@
 #include "lattice/linear_operator.h"
 #include "utils/auxiliary.h"
 #include <stdexcept>
+#include <utility>
 #include <vector>
 
 namespace MG {
@@ -153,6 +154,18 @@ namespace MG {
 
         const CBSubset &GetSubset() const override { return _M.GetSubset(); }
 
+        /**
+         * Return whether the operator is Hermitian, M = M^H
+         */
+
+        bool isHermitian() const override { return _M.isHermitian(); };
+
+        /**
+         * Return whether the operator is \gamma_5-Hermitian, \gamma_5*M*\gamma_5 = M^H
+         */
+
+        bool isg5Hermitian() const override { return _M.isg5Hermitian(); };
+ 
         virtual ~LinearSolver() {}
 
     protected:
@@ -230,18 +243,26 @@ namespace MG {
      */
 
     template <typename Spinor_t>
-    class ImplicitLinearSolver : public LinearSolverNoPrecon<Spinor_t> {
+    class ImplicitLinearSolver : private Box<const ImplicitLinearOperator<Spinor_t>>,
+                                 public LinearSolverNoPrecon<Spinor_t> {
+
+        using LinearOperator_t = Box<const ImplicitLinearOperator<Spinor_t>>;
+
     public:
         /// Vector class
         using Spinor = Spinor_t;
 
-        const LatticeInfo &GetInfo() const override { return _M.GetInfo(); }
+        /**
+         * Return the lattice information
+         */
+
+        const LatticeInfo &GetInfo() const override { return LinearOperator_t::member.GetInfo(); }
 
         /**
          * Return the support of the operator (SUBSET_EVEN, SUBSET_ODD, SUBSET_ALL)
          */
 
-        const CBSubset &GetSubset() const override { return _M.GetSubset(); }
+        const CBSubset &GetSubset() const override { return LinearOperator_t::member.GetSubset(); }
 
         virtual ~ImplicitLinearSolver() {}
 
@@ -255,12 +276,14 @@ namespace MG {
          */
 
         ImplicitLinearSolver(const LatticeInfo &info, const CBSubset subset = SUBSET_ALL,
-                             const LinearSolverParamsBase &params = LinearSolverParamsBase())
-            : LinearSolverNoPrecon<Spinor_t>(_M, params), _M(info, subset), _params(params) {}
+                             const LinearSolverParamsBase &params = LinearSolverParamsBase(),
+                             bool isHermitian = false, bool isg5Hermitian = false)
+            : LinearOperator_t{ImplicitLinearOperator<Spinor_t>(info, subset, isHermitian,
+                                                                isg5Hermitian)},
+              LinearSolverNoPrecon<Spinor_t>(LinearOperator_t::member, params),
+              _params(params) {}
 
     public:
-        /// Linear operator
-        const ImplicitLinearOperator<Spinor> _M;
         /// Linear solver params
         const LinearSolverParamsBase _params;
     };
@@ -269,7 +292,8 @@ namespace MG {
      * Solve the linear system using the even-odd approach.
      */
 
-    template <typename Solver> class UnprecLinearSolver : public Solver {
+    template <typename Solver>
+    class UnprecLinearSolver : public ImplicitLinearSolver<typename Solver::Spinor> {
     public:
         /// Vector class
         using Spinor = typename Solver::Spinor;
@@ -278,13 +302,16 @@ namespace MG {
          * Constructor
          *
          * \param M: operator
-         * \param params: linear solver params
-         * \param prec: preconditioner
+         * \param args: rest of arguments to construct Solver
          */
 
-        UnprecLinearSolver(const EOLinearOperator<Spinor> &M, const LinearSolverParamsBase &params,
-                           const LinearOperator<Spinor> *prec = nullptr)
-            : Solver(M, params, prec), _M(M) {}
+        template <typename... Args>
+        explicit UnprecLinearSolver(const EOLinearOperator<Spinor> &M,
+                                    const LinearSolverParamsBase &params, Args &&... args)
+            : ImplicitLinearSolver<Spinor>(M.GetInfo(), SUBSET_ALL, params, M.isHermitian(),
+                                           M.isg5Hermitian()),
+              _M(M),
+              _solver(M, params, std::forward<Args>(args)...) {}
 
         virtual ~UnprecLinearSolver() {}
 
@@ -297,13 +324,13 @@ namespace MG {
          * \param guess: Whether the initial is provided
          */
 
-        virtual std::vector<LinearSolverResults>
+        std::vector<LinearSolverResults>
         operator()(Spinor &out, const Spinor &in, ResiduumType resid_type = RELATIVE,
-                   InitialGuess guess = InitialGuessNotGiven) const {
+                   InitialGuess guess = InitialGuessNotGiven) const override {
 
             std::vector<LinearSolverResults> ret_val;
-            std::shared_ptr<Spinor> tmp_src = this->tmp(in);
-            std::shared_ptr<Spinor> tmp_out = this->tmp(in);
+            std::shared_ptr<Spinor> tmp_src = _M.tmp(in);
+            std::shared_ptr<Spinor> tmp_out = _M.tmp(in);
 
             // Prepare the source: L^{-1} in
             _M.leftInvOp(*tmp_src, in);
@@ -316,7 +343,7 @@ namespace MG {
             }
 
             // Solve odd part
-            ret_val = Solver::operator()(*tmp_out, *tmp_src, resid_type, guess);
+            ret_val = _solver(*tmp_out, *tmp_src, resid_type, guess);
 
             // Solve even part
             _M.M_ee_inv(*tmp_out, *tmp_src);
@@ -327,11 +354,11 @@ namespace MG {
             return ret_val;
         }
 
-        const CBSubset &GetSubset() const override { return SUBSET_ALL; }
-
     private:
         /// Linear operator
         const EOLinearOperator<Spinor> &_M;
+        /// Solver
+        const Solver _solver;
     };
 
 } // namespace MG

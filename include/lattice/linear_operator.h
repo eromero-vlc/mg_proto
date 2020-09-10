@@ -61,7 +61,19 @@ namespace MG {
          */
 
         virtual const CBSubset &GetSubset() const = 0;
-    };
+
+        /**
+         * Return whether the operator is Hermitian, M = M^H
+         */
+
+        virtual bool isHermitian() const = 0;
+
+        /**
+         * Return whether the operator is \gamma_5-Hermitian, \gamma_5*M*\gamma_5 = M^H
+         */
+
+        virtual bool isg5Hermitian() const = 0;
+     };
 
     /**
      * Abstract Even-Odd linear operator class
@@ -174,6 +186,7 @@ namespace MG {
          */
 
         virtual void M_diag(Spinor &out, const Spinor &in, int cb) const = 0;
+
     };
 
      /**
@@ -195,8 +208,12 @@ namespace MG {
          * \param subset: subset (default SUBSET_ALL)
          */
 
-        ImplicitLinearOperator(const LatticeInfo &info, const CBSubset subset = SUBSET_ALL)
-            : _info(info), _subset(subset) {}
+        ImplicitLinearOperator(const LatticeInfo &info, const CBSubset subset = SUBSET_ALL,
+                               bool isHermitian = false, bool isg5Hermitian = false)
+            : _info(info),
+              _subset(subset),
+              _isHermitian(isHermitian),
+              _isg5Hermitian(isg5Hermitian) {}
 
         /**
          * Apply the operator (not available)
@@ -230,9 +247,22 @@ namespace MG {
 
         const CBSubset &GetSubset() const override { return _subset; }
 
+        /**
+         * Return whether the operator is Hermitian, M = M^H
+         */
+
+        bool isHermitian() const override { return _isHermitian; };
+
+        /**
+         * Return whether the operator is \gamma_5-Hermitian, \gamma_5*M*\gamma_5 = M^H
+         */
+
+        bool isg5Hermitian() const override { return _isg5Hermitian; };
+
     private:
         const LatticeInfo _info;
         const CBSubset _subset;
+        const bool _isHermitian, _isg5Hermitian;
     };
 
     /**
@@ -247,7 +277,9 @@ namespace MG {
     public:
         using Spinor = Spinor_t;
         M_oo_inv(const EOLinearOperator<Spinor_t> &op)
-            : ImplicitLinearOperator<Spinor_t>(op.GetInfo(), SUBSET_ODD), _op(op) {}
+            : ImplicitLinearOperator<Spinor_t>(op.GetInfo(), SUBSET_ODD, op.isHermitian(),
+                                               op.isg5Hermitian()),
+              _op(op) {}
 
         void operator()(Spinor &out, const Spinor &in, IndexType type = LINOP_OP) const {
             if (type != LINOP_OP) throw std::runtime_error("type not supported");

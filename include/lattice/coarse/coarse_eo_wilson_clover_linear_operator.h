@@ -193,6 +193,18 @@ namespace MG {
 
         const LatticeInfo &GetInfo(void) const override { return _u->GetInfo(); }
 
+        /**
+         * Return whether the operator is Hermitian, M = M^H
+         */
+
+        bool isHermitian() const override { return false; };
+
+        /**
+         * Return whether the operator is \gamma_5-Hermitian, \gamma_5*M*\gamma_5 = M^H
+         */
+
+        bool isg5Hermitian() const override { return true; };
+
     private:
         const std::shared_ptr<CoarseGauge> _u;
         const CoarseDiracOp _the_op;

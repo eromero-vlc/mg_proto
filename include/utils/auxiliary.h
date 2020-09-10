@@ -98,6 +98,29 @@ namespace MG {
         mutable std::vector<std::shared_ptr<Spinor>> _tmp;
         const AuxiliarySpinors<Spinor> *subrogate;
     };
+
+
+    /**
+     * Simple wrapper around a type
+     *
+     * \param T: Type to wrapper
+     * \param UniqueId: optional identifier
+     *
+     * Example for initializing derived members before base classes:
+     *
+     * ```
+     * class B : private Box<A>, private Box<A,1>, C {
+     *    public:
+     *    B(int i) : Box<A>{A(i)}, Box<A,1>{A(i*2)}, C(Box<A>::member, Box<A,1>::member) {}
+     * };
+     * ```
+     */
+
+    template <typename T, int UniqueId = 0> struct Box {
+        using member_type = T;
+        static constexpr int uniqueId = UniqueId;
+        T member;
+    };
 }
 
 #endif

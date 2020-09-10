@@ -11,7 +11,6 @@
 #include "lattice/coarse/coarse_deflation.h" // computeDeflation
 #include "lattice/coarse/coarse_op.h"
 #include "lattice/coarse/coarse_transfer.h"                // CoarseTransfer
-#include "lattice/coarse/invfgmres_coarse.h"               // UnprecFGMRESSolverCoarseWrapper
 #include "lattice/coloring.h"                              // Coloring
 #include "lattice/eigs_common.h"                           // EigsParams
 #include "lattice/fine_qdpxx/mg_params_qdpxx.h"            // SetupParams
@@ -22,6 +21,7 @@
 #include "lattice/qphix/qphix_transfer.h"                  // QPhiXTransfer
 #include "lattice/qphix/qphix_types.h"                     // QPhiXSpinorF
 #include "lattice/qphix/vcycle_recursive_qphix.h"          // VCycleRecursiveQPhiXEO2
+#include "utils/auxiliary.h"
 #include <MG_config.h>
 #include <cassert>
 #include <memory>
@@ -85,6 +85,20 @@ namespace MG {
         using AuxC = AuxiliarySpinors<CoarseSpinor>;
 
     public:
+
+        enum Style {
+            do_K,                          // Do K*in
+            do_invM_Q_plus_K_complQ,       // Do M^{-1}*Q + K*(I-Q)
+            do_invM_Q_plus_complP_K_complQ // Do M^{-1}*Q + (I-P)*K*(I-Q)
+        };
+
+        enum PrecMode {
+            use_default,            // Whatever _prec_mode says
+            use_approximateInverse, // K = M^{-1} \odot HH^T
+            use_M_oo_inv            // K = M_oo^{-1}
+        };
+
+
         /*
          * Constructor
          *
@@ -158,7 +172,7 @@ namespace MG {
                 std::vector<MG::VCycleParams> prec_vcycle_params,
                 LinearSolverParamsBase prec_solver_params, unsigned int K_distance,
                 unsigned int probing_distance, const CBSubset subset, unsigned int mode = 2,
-                unsigned int style = 2, unsigned int prec_mode = 0)
+                unsigned int style = 2, unsigned int prec_mode = 1)
             : ImplicitLinearSolver<QPhiXSpinor>(M_fine->GetInfo(), subset, prec_solver_params),
               LinearSolver<QPhiXSpinorF>(*M_fine, prec_solver_params),
               _M_fine(M_fine),
@@ -166,11 +180,11 @@ namespace MG {
               _subset(subset),
               _mode(mode),
               _style(style),
-              _prec_mode(prec_mode) {
+              _prec_mode(prec_mode == 0 ? use_M_oo_inv : use_approximateInverse) {
             (void)defl_p;
 
             MasterLog(INFO, "ALI Solver constructor: mode= %d style= %d  prec_mode= %d BEGIN",
-                      _mode, _style, _prec_mode);
+                      _mode, _style, prec_mode);
 
             // Create Multigrid preconditioner
             _mg_levels = std::make_shared<QPhiXMultigridLevelsEO>();
@@ -178,10 +192,14 @@ namespace MG {
 
             // Create stubs to self-calls
             _prec_coarse.resize(_mg_levels->coarse_levels.size());
+            _prec_coarse_init.resize(_mg_levels->coarse_levels.size());
             for (unsigned int level = 1; level < _mg_levels->coarse_levels.size() + 1; ++level) {
-                _prec_coarse[level - 1] = std::make_shared<const S<CoarseSpinor>>(*this, level);
+                _prec_coarse[level - 1] =
+                    std::make_shared<const S<CoarseSpinor, use_M_oo_inv>>(*this, level);
+                _prec_coarse_init[level - 1] =
+                    std::make_shared<const S<CoarseSpinor, use_approximateInverse>>(*this, level);
             }
-            _prec_top = std::make_shared<const S<QPhiXSpinorF>>(*this);
+            _prec_top = std::make_shared<const S<QPhiXSpinorF, use_M_oo_inv>>(*this);
 
             // Create a Multigrid V-cycle
             // Generate the prolongators and restrictiors
@@ -199,10 +217,13 @@ namespace MG {
             // Generate solvers for solving the whole coarse operator
             _bottom_solver.resize(_mg_levels->coarse_levels.size());
             for (unsigned int level = 1; level < _mg_levels->coarse_levels.size() + 1; ++level) {
-                _bottom_solver[level - 1] = std::make_shared<UnprecFGMRESSolverCoarseWrapper>(
-                    *_mg_levels->coarse_levels[level - 1].M,
-                    prec_vcycle_params[level - 1].bottom_solver_params,
-                    _prec_coarse[level - 1].get());
+                const LinearOperator<CoarseSpinor> *prec = _prec_coarse[level - 1].get();
+                const LinearOperator<CoarseSpinor> *init = _prec_coarse_init[level - 1].get();
+                _bottom_solver[level - 1] =
+                    std::make_shared<UnprecLinearSolver<SolverWithDefaultInitialGuess<
+                        FGMRESGeneric::FGMRESSolverGeneric<CoarseSpinor>>>>(
+                        *_mg_levels->coarse_levels[level - 1].M,
+                        prec_vcycle_params[level - 1].bottom_solver_params, prec, init, "B");
             }
 
             // Create projector
@@ -222,7 +243,7 @@ namespace MG {
                 build_K(prec_solver_params, probing_distance,
                         *_mg_levels->coarse_levels[level - 1].M);
             }
-            build_K(prec_solver_params, probing_distance, *_M_fine);
+            //build_K(prec_solver_params, probing_distance, *_M_fine);
             MasterLog(INFO, "ALI Solver constructor: END");
 
             AuxQ::clear();
@@ -274,19 +295,20 @@ namespace MG {
         template <typename Spinor>
         std::vector<LinearSolverResults>
         apply(Spinor &out, const Spinor &in, ResiduumType resid_type = RELATIVE,
-                   InitialGuess guess = InitialGuessNotGiven) const {
+              InitialGuess guess = InitialGuessNotGiven, PrecMode prec_mode = use_default) const {
+
             (void)guess;
             (void)resid_type;
 
             switch (_style) {
             case 0: // Do K*in
-                apply_sub_precon(out, in, do_K);
+                apply_sub_precon(out, in, do_K, prec_mode);
                 break;
             case 1: // Do [A^{-1}*Q + K*(I-Q)]*in
-                apply_sub_precon(out, in, do_invM_Q_plus_K_complQ);
+                apply_sub_precon(out, in, do_invM_Q_plus_K_complQ, prec_mode);
                 break;
             case 2: // Do [A^{-1}*Q + (I-P)*K*(I-Q)]*in
-                apply_sub_precon(out, in, do_invM_Q_plus_complP_K_complQ);
+                apply_sub_precon(out, in, do_invM_Q_plus_complP_K_complQ, prec_mode);
                 break;
             default:
                 assert(false);
@@ -327,18 +349,20 @@ namespace MG {
          * \param in: input vectors
          */
 
-        void apply_K(QPhiXSpinorF &out, const QPhiXSpinorF &in) const {
+        void apply_K(QPhiXSpinorF &out, const QPhiXSpinorF &in, PrecMode prec_mode) const {
             assert(out.GetNCol() == in.GetNCol());
             IndexType ncol = out.GetNCol();
 
-            if (_prec_mode == 0) {
+            if (prec_mode == use_default) prec_mode = _prec_mode;
+
+            if (prec_mode == use_M_oo_inv || !_K_vals[0]) {
                 _M_fine->M_oo_inv(out, in);
             } else {
                 std::shared_ptr<CoarseSpinor> in_c = AuxC::tmp(in.GetInfo(), ncol);
                 ZeroVec(*in_c, _subset.complementary());
                 ConvertSpinor(in, *in_c, _subset);
                 std::shared_ptr<CoarseSpinor> out_c = AuxC::tmp(in.GetInfo(), ncol);
-                apply_K(*out_c, *in_c);
+                apply_K(*out_c, *in_c, use_approximateInverse);
                 ZeroVec(out, _subset.complementary());
                 ConvertSpinor(*out_c, out, _subset);
             }
@@ -351,11 +375,11 @@ namespace MG {
          * \param in: input vectors
          */
 
-        void apply_K(CoarseSpinor &out, const CoarseSpinor &in) const {
+        void apply_K(CoarseSpinor &out, const CoarseSpinor &in, PrecMode prec_mode) const {
             assert(out.GetNCol() == in.GetNCol());
             const unsigned int level = in.GetInfo().GetLevel();
 
-            if (_prec_mode == 0) {
+            if (prec_mode == use_M_oo_inv) {
                 _mg_levels->coarse_levels[level - 1].M->M_oo_inv(out, in);
             } else if (_K_distance == 0 || !_K_vals[level]) {
                 CopyVec(out, in, _subset);
@@ -399,7 +423,8 @@ namespace MG {
         const CBSubset &GetSubset() const { return _subset; }
 
     private:
-        template <typename Spinor> struct S : public ImplicitLinearSolver<Spinor> {
+        template <typename Spinor, PrecMode prec_mode>
+        struct S : public ImplicitLinearSolver<Spinor> {
             S(const ALIPrec &aliprec, unsigned int level = 0)
                 : ImplicitLinearSolver<Spinor>(aliprec.GetInfo(level), aliprec.GetSubset()),
                   _aliprec(aliprec) {}
@@ -410,11 +435,47 @@ namespace MG {
                        InitialGuess guess = InitialGuessNotGiven) const override {
                 (void)resid_type;
                 (void)guess;
-                _aliprec(out, in);
+                _aliprec.apply(out, in, RELATIVE, InitialGuessNotGiven, prec_mode);
                 return std::vector<LinearSolverResults>(in.GetNCol(), LinearSolverResults());
             }
 
             const ALIPrec &_aliprec;
+        };
+
+        template <typename Solver> class SolverWithDefaultInitialGuess : public Solver {
+        public:
+            using Spinor = typename Solver::Spinor;
+
+            using Solver::Solver;
+            template <typename... Args>
+            explicit SolverWithDefaultInitialGuess(const EOLinearOperator<Spinor> &M,
+                                                   const LinearSolverParamsBase &params,
+                                                   const LinearOperator<Spinor> *prec,
+                                                   const LinearOperator<Spinor> *init,
+                                                   Args &&... args)
+                : Solver(M, params, prec, std::forward<Args>(args)...), _init(init) {}
+
+            /**
+             * Compute the solution.
+             *
+             * \param[out] out: solution vector
+             * \param in: input vector
+             * \param resid_type: stopping criterion (RELATIVE or ABSOLUTE)
+             * \param guess: Whether the initial is provided
+             */
+
+            std::vector<LinearSolverResults>
+            operator()(Spinor &out, const Spinor &in, ResiduumType resid_type = RELATIVE,
+                       InitialGuess guess = InitialGuessNotGiven) const override {
+                if (guess == InitialGuessNotGiven && _init) {
+                    (*_init)(out, in);
+                    guess = InitialGuessGiven;
+                }
+                return Solver::operator()(out, in, resid_type, guess);
+        }
+
+        private:
+            const LinearOperator<Spinor> *_init;
         };
 
         /**
@@ -561,12 +622,6 @@ namespace MG {
             }
         }
 
-        enum Style {
-            do_K,                          // Do K*in
-            do_invM_Q_plus_K_complQ,       // Do M^{-1}*Q + K*(I-Q)
-            do_invM_Q_plus_complP_K_complQ // Do M^{-1}*Q + (I-P)*K*(I-Q)
-        };
-
         /**
          * Return the result of a preconditioner step controlled by style
          *
@@ -584,7 +639,9 @@ namespace MG {
          *   out = [M^{-1}*Q + (I-P)*K*(I-Q)]*in
          */
 
-        void apply_sub_precon(QPhiXSpinor &out, const QPhiXSpinor &in, Style style) const {
+        void apply_sub_precon(QPhiXSpinor &out, const QPhiXSpinor &in, Style style,
+                              PrecMode prec_mode) const {
+
             assert(out.GetNCol() == in.GetNCol());
             IndexType ncol = out.GetNCol();
 
@@ -592,7 +649,7 @@ namespace MG {
             ZeroVec(*in_f);
             ConvertSpinor(in, *in_f, _subset);
             std::shared_ptr<QPhiXSpinorF> out_f = AuxQF::tmp(in.GetInfo(), ncol);
-            apply_sub_precon<QPhiXSpinorF>(*out_f, *in_f, style);
+            apply_sub_precon<QPhiXSpinorF>(*out_f, *in_f, style, prec_mode);
             ZeroVec(out);
             ConvertSpinor(*out_f, out, _subset);
         }
@@ -615,24 +672,28 @@ namespace MG {
          */
 
         template <typename Spinor>
-        void apply_sub_precon(Spinor &out, const Spinor &in, Style style) const {
+        void apply_sub_precon(Spinor &out, const Spinor &in, Style style,
+                              PrecMode prec_mode) const {
+
             using AuxS = AuxiliarySpinors<Spinor>;
 
             assert(out.GetNCol() == in.GetNCol());
 
             // Do out = K*in if style == do_K
             if (style == do_K) {
-                apply_K(out, in);
+                apply_K(out, in, prec_mode);
                 return;
             }
 
             // I_Q_in = (I-Q)*in and out = M^{-1}*Q*in
             std::shared_ptr<Spinor> I_Q_in = AuxS::tmp(in);
             apply_complQ<Spinor>(*I_Q_in, in, &out);
+            MasterLog(INFO, "for level %d     ||Q*M^{-1}*in|| = %g", out.GetInfo().GetLevel(),
+                      sum(aux::sqrt(Norm2Vec(out))) / out.GetNCol());
 
             // K_I_Q_in = K * I_Q_in
             std::shared_ptr<Spinor> K_I_Q_in = AuxS::tmp(in);
-            apply_K(*K_I_Q_in, *I_Q_in);
+            apply_K(*K_I_Q_in, *I_Q_in, prec_mode);
 
             if (style == do_invM_Q_plus_K_complQ) {
                 YpeqXVec(*K_I_Q_in, out, _subset);
@@ -699,8 +760,12 @@ namespace MG {
             using Spinor = typename Op::Spinor;
             using AuxS = AuxiliarySpinors<Spinor>;
 
-            if (_K_distance == 0 || _prec_mode == 0) return;
+            if (_K_distance == 0 || (_mode < 2 && M.GetInfo().GetLevel() > 0) ||
+                _prec_mode == use_M_oo_inv)
+                return;
             if (_K_distance > 1) throw std::runtime_error("Not implemented 'K_distance' > 1");
+
+            MasterLog(INFO, "Building approximate inverse for level %d", M.GetInfo().GetLevel());
 
             const LinearSolver<Spinor> *prec;
             get_precond(M.GetInfo().GetLevel(), prec);
@@ -891,7 +956,7 @@ namespace MG {
                 std::shared_ptr<Spinor> aux0 = AuxS::tmp(info, info.GetNumColorSpins());
                 double norm_sol_e = sqrt(sum(Norm2Vec(*sol_e, SUBSET_ODD)));
 
-                // Compute norm_diff = |sol_p-sol_e|_F
+                // Compute norm_diff = |sol_p - sol_e|_F
                 CopyVec(*aux, *sol_e);
                 double norm_diff = sqrt(sum(XmyNorm2Vec(*aux, *sol_p, SUBSET_ODD)));
 
@@ -964,7 +1029,7 @@ namespace MG {
 
             // sol_p \approx K * (I-Q) * e
             std::shared_ptr<Spinor> sol_p = AuxS::tmp(info, nc);
-            apply_K(*sol_p, *I_Q_e);
+            apply_K(*sol_p, *I_Q_e, use_approximateInverse);
 
             double norm_e = sqrt(sum(Norm2Vec(*sol_e, SUBSET_ODD)));
             double norm_diff = sqrt(sum(XmyNorm2Vec(*sol_e, *sol_p, SUBSET_ODD)));
@@ -1019,10 +1084,12 @@ namespace MG {
         const CBSubset _subset;
         const unsigned int _mode;
         const unsigned int _style;
-        const unsigned int _prec_mode;
+        const PrecMode _prec_mode;
         std::shared_ptr<QPhiXMultigridLevelsEO> _mg_levels;
-        std::shared_ptr<const S<QPhiXSpinorF>> _prec_top;
-        std::vector<std::shared_ptr<const S<CoarseSpinor>>> _prec_coarse;
+        std::shared_ptr<const S<QPhiXSpinorF, use_M_oo_inv>> _prec_top;
+        std::vector<std::shared_ptr<const S<CoarseSpinor, use_M_oo_inv>>> _prec_coarse;
+        std::vector<std::shared_ptr<const S<CoarseSpinor, use_approximateInverse>>>
+            _prec_coarse_init;
         std::shared_ptr<QPhiXTransfer<QPhiXSpinorF>> _Transfer_fine_level;
         std::vector<std::shared_ptr<CoarseTransfer>> _Transfer_coarse_level;
         std::vector<std::shared_ptr<const LinearSolver<CoarseSpinor>>> _bottom_solver;
