@@ -9,12 +9,42 @@
 #include "lattice/coarse/subset.h"
 #include "lattice/qphix/qphix_qdp_utils.h"
 #include "lattice/qphix/qphix_types.h"
+#include "utils/timer.h"
 #include <qphix/blas_full_spinor.h>
 #include <utility>
+
+#ifdef MG_QMP_COMMS
+#    include <qmp.h>
+#endif
 
 using namespace QPhiX;
 
 namespace MG {
+
+    namespace GlobalComm {
+
+#ifdef MG_QMP_COMMS
+        void GlobalSum(std::vector<double> &array) {
+            Timer::TimerAPI::startTimer("QPhiXSpinor/globalsum/sp12");
+            QMP_sum_double_array(&array[0], array.size());
+            Timer::TimerAPI::stopTimer("QPhiXSpinor/globalsum/sp12");
+        }
+        void GlobalSum(std::vector<std::complex<double>> &array) {
+            Timer::TimerAPI::startTimer("QPhiXSpinor/globalsum/sp12");
+            QMP_sum_double_array((double *)&array[0], array.size() * 2);
+            Timer::TimerAPI::stopTimer("QPhiXSpinor/globalsum/sp12");
+        }
+#else
+        void GlobalSum(std::vector<double> &array) {
+            return; // Single Node for now. Return the untouched array. -- MPI Version should use allreduce
+        }
+
+        void GlobalSum(std::vector<std::complex<double>> &array) {
+            return; // Single Node for now. Return the untouched array. -- MPI Version should use allreduce
+        }
+#endif
+    }
+
 
     // x = x - y; followed by || x ||
     template <typename ST>
@@ -24,8 +54,9 @@ namespace MG {
         const typename ST::GeomT &geom = y.getGeom();
         int n_blas_simt = geom.getNSIMT();
         for (int col = 0; col < ncol; ++col)
-            xmy2Norm2Spinor<>(y.get(col), x.get(col), ret_norm[col], geom, n_blas_simt,
-                              subset.start, subset.end);
+            xmy2Norm2SpinorLocal(y.get(col), x.get(col), ret_norm[col], geom, n_blas_simt,
+                                 subset.start, subset.end);
+        GlobalComm::GlobalSum(ret_norm);
         return ret_norm;
     }
 
@@ -45,7 +76,8 @@ namespace MG {
         const typename ST::GeomT &geom = x.getGeom();
         int n_blas_simt = geom.getNSIMT();
         for (int col = 0; col < ncol; ++col)
-            norm2Spinor(ret_norm[col], x.get(col), geom, n_blas_simt, subset.start, subset.end);
+            norm2SpinorLocal(ret_norm[col], x.get(col), geom, n_blas_simt, subset.start, subset.end);
+        GlobalComm::GlobalSum(ret_norm);
         return ret_norm;
     }
 
@@ -58,8 +90,9 @@ namespace MG {
     }
 
     template <typename ST>
-    inline std::vector<std::complex<double>> InnerProductVecT(const ST &x, const ST &y,
-                                                              const CBSubset &subset) {
+    inline std::vector<std::complex<double>>
+    InnerProductVecT(const ST &x, const ST &y, const CBSubset &subset, bool do_globalsum = true) {
+
         const typename ST::GeomT &geom = y.getGeom();
         int n_blas_simt = geom.getNSIMT();
         IndexType ncol = x.GetNCol();
@@ -67,10 +100,11 @@ namespace MG {
         std::vector<std::complex<double>> ret(ncol);
         for (int col = 0; col < ncol; ++col) {
             double result[2];
-            innerProductSpinor(result, x.get(col), y.get(col), geom, n_blas_simt, subset.start,
-                               subset.end);
+            innerProductSpinorLocal(result, x.get(col), y.get(col), geom, n_blas_simt, subset.start,
+                                    subset.end);
             ret[col] = std::complex<double>(result[0], result[1]);
         }
+        if (do_globalsum) GlobalComm::GlobalSum(ret);
 
         return ret;
     }
@@ -96,9 +130,10 @@ namespace MG {
         std::vector<std::complex<double>> ipprod;
         ipprod.reserve(y.GetNCol() * std::distance(xbegin, xend));
         for (typename std::vector<ST *>::const_iterator it = xbegin; it != xend; ++it) {
-            std::vector<std::complex<double>> ipprod0 = InnerProductVecT(**it, y, subset);
+            std::vector<std::complex<double>> ipprod0 = InnerProductVecT(**it, y, subset, false);
             ipprod.insert(ipprod.end(), ipprod0.begin(), ipprod0.end());
         }
+        GlobalComm::GlobalSum(ipprod);
         return ipprod;
     }
 
