@@ -143,14 +143,22 @@ namespace MG {
                 A(w, *(Z[j]), LINOP_OP); // w  = A z_
                 Timer::TimerAPI::stopTimer("FGMRESSolverGeneric/operatorA/level" + level);
 
-                // Fill out column j
-                for (int i = 0; i <= j; ++i) {
+                // H[col](j,:) = V[0:j-1][col]' * w[col]
+                // w[col] = w[col] - V[0:j-1] * H[col](j,:)
+                for (int i = 0; i <= j; ++i)
+                    for (int col = 0; col < ncol; ++col) H[col](j, i) = 0.0;
+                for (int ortho_rep = 0; ortho_rep < 2; ortho_rep++) {
+                    // hji[i,col] = V[i][col]'*w[col]
                     std::vector<std::complex<double>> hji =
-                        InnerProductVec(*(V[i]), w, subset);                      //  Inner product
-                    for (int col = 0; col < ncol; ++col) H[col](j, i) = hji[col]; //  Inner product
+                        InnerProductVec(V.cbegin(), V.cbegin() + j + 1, w, subset);
+                    for (int i = 0; i <= j; ++i) {
+                        for (int col = 0; col < ncol; ++col) H[col](j, i) += hji[i * ncol + col];
 
-                    // w[s] -= H(j,i)* V[i];                     // y = y - alpha x = CAXPY
-                    AxpyVec(negate(hji), *(V[i]), w, subset);
+                        // w[s] -= H(j,i)* V[i];                     // y = y - alpha x = CAXPY
+                        AxpyVec(negate(std::vector<std::complex<double>>(
+                                    hji.cbegin() + i * ncol, hji.cbegin() + (i + 1) * ncol)),
+                                *(V[i]), w, subset);
+                    }
                 }
 
                 std::vector<double> wnorm = aux::sqrt(Norm2Vec(w, subset)); //  NORM

@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <cassert>
 #include <complex>
+#include <iterator>
 
 #include "MG_config.h"
 
@@ -67,16 +68,16 @@ namespace MG {
 			initializer(omp_priv = new std::vector<std::complex<double>>(omp_orig->size()))
 
     /** Performs:
- *  x <- x - y;
- *  returns: norm(x) after subtraction
- *  Useful for computing residua, where r = b and y = Ax
- *  then n2 = xmyNorm(r,y); will leave r as the residuum and return its square norm
- *
- * @param x  - CoarseSpinor ref
- * @param y  - CoarseSpinor ref
- * @return   double containing the square norm of the difference
- *
- */
+     *  x <- x - y;
+     *  returns: norm(x) after subtraction
+     *  Useful for computing residua, where r = b and y = Ax
+     *  then n2 = xmyNorm(r,y); will leave r as the residuum and return its square norm
+     *
+     * @param x  - CoarseSpinor ref
+     * @param y  - CoarseSpinor ref
+     * @return   double containing the square norm of the difference
+     *
+     */
     std::vector<double> XmyNorm2Vec(CoarseSpinor &x, const CoarseSpinor &y,
                                     const CBSubset &subset) {
         const LatticeInfo &x_info = x.GetInfo();
@@ -117,17 +118,16 @@ namespace MG {
             }
         } // End of Parallel for reduction
 
-        // I would probably need some kind of global reduction here  over the nodes which for now I will ignore.
         MG::GlobalComm::GlobalSum(norm_diff, x);
 
         return norm_diff;
     }
 
     /** returns || x ||^2
- * @param x  - CoarseSpinor ref
- * @return   double containing the square norm of the difference
- *
- */
+     * @param x  - CoarseSpinor ref
+     * @return   double containing the square norm of the difference
+     *
+     */
     std::vector<double> Norm2Vec(const CoarseSpinor &x, const CBSubset &subset) {
 
         const LatticeInfo &x_info = x.GetInfo();
@@ -160,20 +160,19 @@ namespace MG {
             }
         } // End of Parallel for reduction
 
-        // I would probably need some kind of global reduction here  over the nodes which for now I will ignore.
         MG::GlobalComm::GlobalSum(norm_sq, x);
 
         return norm_sq;
     }
 
     /** returns < x[i] | y[i] > = x[i]^H . y[i]
- * @param x  - CoarseSpinor ref
- * @param y  - CoarseSpinor ref
- * @return   double containing the square norm of the difference
- *
- */
-    std::vector<std::complex<double>> InnerProductVec(const CoarseSpinor &x, const CoarseSpinor &y,
-                                                      const CBSubset &subset) {
+     * @param x  - CoarseSpinor ref
+     * @param y  - CoarseSpinor ref
+     * @return   double containing the square norm of the difference
+     *
+     */
+    std::vector<std::complex<double>>
+    InnerProductVecLocal(const CoarseSpinor &x, const CoarseSpinor &y, const CBSubset &subset) {
 
         const LatticeInfo &x_info = x.GetInfo();
         const LatticeInfo &y_info = y.GetInfo();
@@ -217,18 +216,52 @@ namespace MG {
             }
         } // End of Parallel for reduction
 
-        // Global Reduce
-        MG::GlobalComm::GlobalSum(ipprod, x);
+        return ipprod;
+    }
 
+    /** returns < x[i] | y[i] > = x[i]^H . y[i]
+     * @param x  - CoarseSpinor ref
+     * @param y  - CoarseSpinor ref
+     * @return   double containing the square norm of the difference
+     *
+     */
+    std::vector<std::complex<double>> InnerProductVec(const CoarseSpinor &x, const CoarseSpinor &y,
+                                                      const CBSubset &subset) {
+
+        std::vector<std::complex<double>> ipprod = InnerProductVecLocal(x, y, subset);
+        MG::GlobalComm::GlobalSum(ipprod, x);
+        return ipprod;
+    }
+
+    /** returns < x[i] | y[i] > = x[i]^H . y[i]
+     * @param x  - CoarseSpinor ref
+     * @param y  - CoarseSpinor ref
+     * @return   double containing the square norm of the difference
+     *
+     */
+    std::vector<std::complex<double>>
+    InnerProductVec(std::vector<CoarseSpinor *>::const_iterator &&xbegin,
+                    std::vector<CoarseSpinor *>::const_iterator &&xend, const CoarseSpinor &y,
+                    const CBSubset &subset) {
+
+        if (xbegin == xend) return std::vector<std::complex<double>>();
+
+        std::vector<std::complex<double>> ipprod;
+        ipprod.reserve(y.GetNCol() * std::distance(xbegin, xend));
+        for (std::vector<CoarseSpinor *>::const_iterator it = xbegin; it != xend; ++it) {
+            std::vector<std::complex<double>> ipprod0 = InnerProductVecLocal(**it, y, subset);
+            ipprod.insert(ipprod.end(), ipprod0.begin(), ipprod0.end());
+        }
+        MG::GlobalComm::GlobalSum(ipprod, y);
         return ipprod;
     }
 
     /** returns v_ij = < x[i] | y[j] > = x[i]^H . y[j]
- * @param x  - CoarseSpinor ref
- * @param y  - CoarseSpinor ref
- * @return  matrix containing the inner products in column-major
- *
- */
+     * @param x  - CoarseSpinor ref
+     * @param y  - CoarseSpinor ref
+     * @return  matrix containing the inner products in column-major
+     *
+     */
     std::vector<std::complex<double>> InnerProductMat(const CoarseSpinor &x, const CoarseSpinor &y,
                                                       const CBSubset &subset) {
 
@@ -269,11 +302,11 @@ namespace MG {
     }
 
     /** returns y[i] = \sum_j x[j] * ip[j,i]
- * @param x  - CoarseSpinor ref
- * @param y  - CoarseSpinor ref
- * @return  CoarseSpinor
- *
- */
+     * @param x  - CoarseSpinor ref
+     * @param y  - CoarseSpinor ref
+     * @return  CoarseSpinor
+     *
+     */
     void UpdateVecs(const CoarseSpinor &x, const std::vector<std::complex<double>> &ip,
                     CoarseSpinor &y, const CBSubset &subset) {
 
@@ -793,8 +826,8 @@ namespace MG {
         const IndexType ncol = x.GetNCol();
 
         /* FIXME: This is quick and dirty and nonreproducible if the lattice is distributed
-	 *  among the processes is a different way. 
-	 */
+         *  among the processes is a different way.
+         */
 
 #ifdef MG_QMP_COMMS
         static const int node = QMP_get_node_number();

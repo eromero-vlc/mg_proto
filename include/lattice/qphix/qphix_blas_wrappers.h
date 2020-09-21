@@ -20,6 +20,14 @@ namespace MG {
     std::vector<double> Norm2Vec(const QPhiXSpinor &x, const CBSubset &subset = SUBSET_ALL);
     std::vector<std::complex<double>> InnerProductVec(const QPhiXSpinor &x, const QPhiXSpinor &y,
                                                       const CBSubset &subset = SUBSET_ALL);
+    std::vector<std::complex<double>>
+    InnerProductVec(std::vector<QPhiXSpinor *>::const_iterator &&xbegin,
+                    std::vector<QPhiXSpinor *>::const_iterator &&xend, const QPhiXSpinor &y,
+                    const CBSubset &subset = SUBSET_ALL);
+    std::vector<std::complex<double>>
+    InnerProductVec(std::vector<QPhiXSpinorF *>::const_iterator &&xbegin,
+                    std::vector<QPhiXSpinorF *>::const_iterator &&xend, const QPhiXSpinorF &y,
+                    const CBSubset &subset = SUBSET_ALL);
 
     void ZeroVec(QPhiXSpinor &x, const CBSubset &subset = SUBSET_ALL);
     void CopyVec(QPhiXSpinor &x, const QPhiXSpinor &y, const CBSubset &subset = SUBSET_ALL);

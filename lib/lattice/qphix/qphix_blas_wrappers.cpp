@@ -10,6 +10,7 @@
 #include "lattice/qphix/qphix_qdp_utils.h"
 #include "lattice/qphix/qphix_types.h"
 #include <qphix/blas_full_spinor.h>
+#include <utility>
 
 using namespace QPhiX;
 
@@ -83,6 +84,42 @@ namespace MG {
                                                       const CBSubset &subset) {
         return InnerProductVecT(x, y, subset);
     }
+
+    template <typename ST>
+    std::vector<std::complex<double>>
+    InnerProductVecT(typename std::vector<ST *>::const_iterator &&xbegin,
+                     typename std::vector<ST *>::const_iterator &&xend, const ST &y,
+                     const CBSubset &subset) {
+
+        if (xbegin == xend) return std::vector<std::complex<double>>();
+
+        std::vector<std::complex<double>> ipprod;
+        ipprod.reserve(y.GetNCol() * std::distance(xbegin, xend));
+        for (typename std::vector<ST *>::const_iterator it = xbegin; it != xend; ++it) {
+            std::vector<std::complex<double>> ipprod0 = InnerProductVecT(**it, y, subset);
+            ipprod.insert(ipprod.end(), ipprod0.begin(), ipprod0.end());
+        }
+        return ipprod;
+    }
+
+    std::vector<std::complex<double>>
+    InnerProductVec(std::vector<QPhiXSpinor *>::const_iterator &&xbegin,
+                    std::vector<QPhiXSpinor *>::const_iterator &&xend, const QPhiXSpinor &y,
+                    const CBSubset &subset) {
+        return InnerProductVecT(std::forward<std::vector<QPhiXSpinor *>::const_iterator>(xbegin),
+                                std::forward<std::vector<QPhiXSpinor *>::const_iterator>(xend), y,
+                                subset);
+    }
+
+    std::vector<std::complex<double>>
+    InnerProductVec(std::vector<QPhiXSpinorF *>::const_iterator &&xbegin,
+                    std::vector<QPhiXSpinorF *>::const_iterator &&xend, const QPhiXSpinorF &y,
+                    const CBSubset &subset) {
+        return InnerProductVecT(std::forward<std::vector<QPhiXSpinorF *>::const_iterator>(xbegin),
+                                std::forward<std::vector<QPhiXSpinorF *>::const_iterator>(xend), y,
+                                subset);
+    }
+
 
     template <typename ST> void ZeroVecT(ST &x, const CBSubset &subset) {
         const typename ST::GeomT &geom = x.getGeom();

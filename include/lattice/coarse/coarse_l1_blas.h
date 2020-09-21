@@ -21,6 +21,10 @@ namespace MG {
     std::vector<double> Norm2Vec(const CoarseSpinor &x, const CBSubset &subset = SUBSET_ALL);
     std::vector<std::complex<double>> InnerProductVec(const CoarseSpinor &x, const CoarseSpinor &y,
                                                       const CBSubset &subset = SUBSET_ALL);
+    std::vector<std::complex<double>>
+    InnerProductVec(std::vector<CoarseSpinor *>::const_iterator &&xbegin,
+                    std::vector<CoarseSpinor *>::const_iterator &&xend, const CoarseSpinor &y,
+                    const CBSubset &subset = SUBSET_ALL);
     std::vector<std::complex<double>> InnerProductMat(const CoarseSpinor &x, const CoarseSpinor &y,
                                                       const CBSubset &subset = SUBSET_ALL);
     void UpdateVecs(const CoarseSpinor &x, const std::vector<std::complex<double>> &ip,
