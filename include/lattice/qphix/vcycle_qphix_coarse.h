@@ -616,7 +616,7 @@ namespace MG {
             int iter = 0;
 
             std::shared_ptr<QPhiXSpinorF> delta = AuxF::tmp(_fine_info, ncol);
-            std::shared_ptr<QPhiXSpinorF> tmp = AuxF::tmp(_fine_info, 1);
+            std::shared_ptr<QPhiXSpinorF> tmp = AuxF::tmp(_fine_info, ncol);
             std::shared_ptr<CoarseSpinor> coarse_in = AuxC::tmp(_coarse_info, ncol);
             std::shared_ptr<CoarseSpinor> coarse_delta = AuxC::tmp(_coarse_info, ncol);
 
@@ -638,11 +638,8 @@ namespace MG {
                     YpeqXVec(*delta, out_f, subset);
 
                     // Update residuum: even odd matrix
-                    for (IndexType col=0; col < delta->GetNCol(); ++col) {
-                        _M_fine(*tmp, QPhiXSpinorF(*delta, col, col+1), LINOP_OP);
-                        QPhiXSpinorF r_col(*r, col, col+1);
-                        YmeqXVec(*tmp, r_col, subset);
-                    }
+                    _M_fine(*tmp, *delta, LINOP_OP);
+                    YmeqXVec(*tmp, *r, subset);
                     Timer::TimerAPI::stopTimer("VCycleQPhiXCoarseEO3/update/level" +
                                                std::to_string(level));
 
@@ -716,11 +713,8 @@ namespace MG {
                     Timer::TimerAPI::startTimer("VCycleQPhiXCoarseEO3/update/level" +
                                                 std::to_string(level));
                     // Update residuum
-                    for (IndexType col = 0; col < delta->GetNCol(); ++col) {
-                        _M_fine(*tmp, QPhiXSpinorF(*delta, col, col + 1), LINOP_OP);
-                        QPhiXSpinorF r_col(*r, col, col + 1);
-                        YmeqXVec(*tmp, r_col, subset);
-                    }
+                    _M_fine(*tmp, *delta, LINOP_OP);
+                    YmeqXVec(*tmp, *r, subset);
                     Timer::TimerAPI::stopTimer("VCycleQPhiXCoarseEO3/update/level" +
                                                std::to_string(level));
                 }
@@ -759,11 +753,8 @@ namespace MG {
                     if (iter < _param.MaxIter || _param.RsdTarget > 0.0 || _param.VerboseP) {
                         Timer::TimerAPI::startTimer("VCycleQPhiXCoarseEO3/update/level" +
                                                     std::to_string(level));
-                        for (IndexType col = 0; col < delta->GetNCol(); ++col) {
-                            _M_fine(*tmp, QPhiXSpinorF(*delta, col, col + 1), LINOP_OP);
-                            QPhiXSpinorF r_col(*r, col, col + 1);
-                            norm_r[col] = aux::sqrt(XmyNorm2Vec(r_col, *tmp, subset))[0];
-                        }
+                        _M_fine(*tmp, *delta, LINOP_OP);
+                        norm_r = aux::sqrt(XmyNorm2Vec(*r, *tmp, subset));
                         Timer::TimerAPI::stopTimer("VCycleQPhiXCoarseEO3/update/level" +
                                                    std::to_string(level));
                     }
