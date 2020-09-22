@@ -111,6 +111,7 @@ namespace MG {
         primme.eps = eigs_params.RsdTarget; /* ||r|| <= eps * ||matrix|| */
         if (eigs_params.MaxRestartSize > 0) primme.maxBasisSize = eigs_params.MaxRestartSize;
         if (eigs_params.MaxIter > 0) primme.maxMatvecs = eigs_params.MaxIter;
+        primme.maxBlockSize = eigs_params.BlockSize;
 
         // Create evals. For twisted operators, gamma * operator is not Hermitian, but normal.
         values.resize(nEv);

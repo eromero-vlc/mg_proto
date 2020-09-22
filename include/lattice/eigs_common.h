@@ -20,7 +20,8 @@ namespace MG {
     public:
         int MaxRestartSize; // Maximum rank of the search subspace
         int MaxNumEvals;    // Maximum number of eigenvalues to find
-        EigsParams() : MaxRestartSize(0), MaxNumEvals(0) {}
+        int BlockSize;      // Expand the subspace in blocks of this size
+        EigsParams() : MaxRestartSize(0), MaxNumEvals(0), BlockSize(1) {}
     };
 }
 
