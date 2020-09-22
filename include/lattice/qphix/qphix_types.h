@@ -147,6 +147,13 @@ namespace MG {
 
         inline QPhiXCBSpinorT<FT> &getCB(IndexType col, int cb) { return _data[col]->getCB(cb); }
 
+        using vectorCB_type = std::vector<typename QPhiXCBSpinorT<FT>::ValueType *>;
+        inline vectorCB_type getCBv(int cb) const {
+            vectorCB_type r(_data.size());
+            for (unsigned int col=0; col<_data.size(); ++col) r[col]= _data[col]->getCB(cb).get();
+            return r;
+        }
+
         inline const QPhiXCBSpinorT<FT> &getCB(IndexType col, int cb) const {
             return _data[col]->getCB(cb);
         }

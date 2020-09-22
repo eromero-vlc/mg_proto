@@ -36,6 +36,7 @@ namespace MG {
         using QDPGauge = QDP::multi1d<QDP::LatticeColorMatrix>;
         using Spinor = QPhiXSpinorT<FT>;
         using CBSpinor = QPhiXCBSpinorT<FT>;
+        typedef const typename QPhiXCBSpinorT<FT>::ValueType **const_CBSpinorVec;
 
         QPhiXWilsonCloverEOLinearOperatorT(const LatticeInfo &info, double m_q, double c_sw,
                                            int t_bc, const QDPGauge &gauge_in)
@@ -150,9 +151,10 @@ namespace MG {
             int isign = (type == LINOP_OP) ? 1 : -1;
             assert(out.GetNCol() == in.GetNCol());
             IndexType ncol = out.GetNCol();
-            for (int col = 0; col < ncol; ++col)
-                QPhiXEOClov->operator()(out.getCB(col, ODD).get(), in.getCB(col, ODD).get(), isign,
-                                        ODD);
+            typename Spinor::vectorCB_type outv = out.getCBv(ODD);
+            const typename Spinor::vectorCB_type inv = in.getCBv(ODD);
+            QPhiXEOClov->operator()(outv.data(), outv.size(), (const_CBSpinorVec)inv.data(), isign,
+                                    ODD);
         }
 
         // The unpreconditioned operator
@@ -208,11 +210,12 @@ namespace MG {
             for (int col = 0; col < ncol; ++col) {
                 QPhiXEOClov->M_diag_inv(tmp->getCB(col, EVEN).get(), in.getCB(col, EVEN).get(),
                                         isign);
-
-                // tmp2 = M_oe M tmp1 = M_oe M_ee^{-1} in
-                QPhiXEOClov->M_offdiag(tmp->getCB(col, ODD).get(), tmp->getCB(col, EVEN).get(),
-                                       isign, ODD);
             }
+            typename Spinor::vectorCB_type tvodd = tmp->getCBv(ODD);
+            typename Spinor::vectorCB_type tveven = tmp->getCBv(EVEN);
+            // tmp2 = M_oe M tmp1 = M_oe M_ee^{-1} in
+            QPhiXEOClov->M_offdiag(tvodd.data(), tvodd.size(), (const_CBSpinorVec)tveven.data(),
+                                   isign, ODD);
             CopyVec(out, in, SUBSET_ALL);
             YpeqXVec(*tmp, out, SUBSET_ODD);
         }
@@ -230,10 +233,12 @@ namespace MG {
                 QPhiXEOClov->M_diag_inv(tmp->getCB(col, EVEN).get(), in.getCB(col, EVEN).get(),
                                         isign);
 
-                // tmp2 = M_oe M tmp1 = M_oe M_ee^{-1} in
-                QPhiXEOClov->M_offdiag(tmp->getCB(col, ODD).get(), tmp->getCB(col, EVEN).get(),
-                                       isign, ODD);
             }
+            typename Spinor::vectorCB_type tvodd = tmp->getCBv(ODD);
+            typename Spinor::vectorCB_type tveven = tmp->getCBv(EVEN);
+            // tmp2 = M_oe M tmp1 = M_oe M_ee^{-1} in
+            QPhiXEOClov->M_offdiag(tvodd.data(), tvodd.size(), (const_CBSpinorVec)tveven.data(),
+                                   isign, ODD);
 
             CopyVec(out, in, SUBSET_ALL);
             YmeqXVec(*tmp, out, SUBSET_ODD);
@@ -289,10 +294,12 @@ namespace MG {
 
             // use odd cb of tmp1 as a temporary storage
             // it is not really the odd checkerboardl
-            for (int col = 0; col < ncol; ++col) {
-                QPhiXEOClov->M_offdiag(tmp->getCB(col, ODD).get(), in.getCB(col, ODD).get(), isign,
-                                       EVEN);
+            typename Spinor::vectorCB_type inv = in.getCBv(ODD);
+            typename Spinor::vectorCB_type tvodd = tmp->getCBv(ODD);
+            QPhiXEOClov->M_offdiag(tvodd.data(), tvodd.size(), (const_CBSpinorVec)inv.data(), isign,
+                                   EVEN);
 
+            for (int col = 0; col < ncol; ++col) {
                 // we will go from the odd into the final target.
                 QPhiXEOClov->M_diag_inv(tmp->getCB(col, EVEN).get(), tmp->getCB(col, ODD).get(),
                                         isign);
@@ -310,9 +317,11 @@ namespace MG {
             IndexType ncol = out.GetNCol();
             std::shared_ptr<Spinor> tmp = this->tmp(in);
 
+            typename Spinor::vectorCB_type inv = in.getCBv(ODD);
+            typename Spinor::vectorCB_type tvodd = tmp->getCBv(ODD);
+            QPhiXEOClov->M_offdiag(tvodd.data(), tvodd.size(), (const_CBSpinorVec)inv.data(), isign,
+                                   EVEN);
             for (int col = 0; col < ncol; ++col) {
-                QPhiXEOClov->M_offdiag(tmp->getCB(col, ODD).get(), in.getCB(col, ODD).get(), isign,
-                                       EVEN);
                 QPhiXEOClov->M_diag_inv(tmp->getCB(col, EVEN).get(), tmp->getCB(col, ODD).get(),
                                         isign);
             }
