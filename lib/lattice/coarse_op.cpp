@@ -325,6 +325,12 @@ namespace MG {
         IndexType max_site = _thread_limits[tid].max_site;
         const int N_colorspin = GetNumColorSpin();
 
+#pragma omp master
+        {
+            _halo.setNCols(spinor_in.GetNCol());
+        }
+#pragma omp barrier
+
         // The opposite direction
         int opp_dir = dir / 2 * 2 + 1 - dir % 2;
         if (!_halo.LocalDir(dir / 2)) {
