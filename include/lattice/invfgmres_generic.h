@@ -361,7 +361,9 @@ namespace MG {
 
                 std::vector<double> r_norm;
                 if (guess == InitialGuessGiven) {
+                    Timer::TimerAPI::startTimer("FGMRESSolverGeneric/operatorA/level" + _prefix);
                     (_M)(*t, out, LINOP_OP);
+                    Timer::TimerAPI::stopTimer("FGMRESSolverGeneric/operatorA/level" + _prefix);
 
                     // r[s] -=t
                     // r_norm = sqrt(norm2(r,s))
@@ -461,7 +463,9 @@ namespace MG {
                     // Recompute r
                     if (iters_total < _params.MaxIter || _params.RsdTarget > 0.0) {
                         CopyVec(*r, in, subset);
+                        Timer::TimerAPI::startTimer("FGMRESSolverGeneric/operatorA/level" + _prefix);
                         (_M)(*t, out, LINOP_OP);
+                        Timer::TimerAPI::stopTimer("FGMRESSolverGeneric/operatorA/level" + _prefix);
                         r_norm = aux::sqrt(XmyNorm2Vec(*r, *t, subset));
                     }
 
