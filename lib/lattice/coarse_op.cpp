@@ -100,7 +100,7 @@ namespace MG {
         IndexType min_site = _thread_limits[tid].min_site;
         IndexType max_site = _thread_limits[tid].max_site;
 
-        // 	Synchronous for now -- maybe change to comms compute overlap later
+        //  Synchronous for now -- maybe change to comms compute overlap later
         // We are in an OMP region.
         CommunicateHaloSyncInOMPParallel<CoarseSpinor, CoarseAccessor>(_halo, spinor_in, target_cb);
 
@@ -168,7 +168,7 @@ namespace MG {
         IndexType min_site = _thread_limits[tid].min_site;
         IndexType max_site = _thread_limits[tid].max_site;
 
-        // 	Synchronous for now -- maybe change to comms compute overlap later
+        //  Synchronous for now -- maybe change to comms compute overlap later
         CommunicateHaloSyncInOMPParallel<CoarseSpinor, CoarseAccessor>(_halo, spinor_in, target_cb);
 
         IndexType ncol = spinor_in.GetNCol();
@@ -193,7 +193,7 @@ namespace MG {
         IndexType min_site = _thread_limits[tid].min_site;
         IndexType max_site = _thread_limits[tid].max_site;
 
-        // 	Synchronous for now -- maybe change to comms compute overlap later
+        //  Synchronous for now -- maybe change to comms compute overlap later
         CommunicateHaloSyncInOMPParallel<CoarseSpinor, CoarseAccessor>(_halo, spinor_in_od,
                                                                        target_cb);
 
@@ -219,7 +219,7 @@ namespace MG {
         IndexType min_site = _thread_limits[tid].min_site;
         IndexType max_site = _thread_limits[tid].max_site;
 
-        // 	Synchronous for now -- maybe change to comms compute overlap later
+        //  Synchronous for now -- maybe change to comms compute overlap later
         CommunicateHaloSyncInOMPParallel<CoarseSpinor, CoarseAccessor>(_halo, spinor_in_od,
                                                                        target_cb);
 
@@ -247,7 +247,7 @@ namespace MG {
         IndexType min_site = _thread_limits[tid].min_site;
         IndexType max_site = _thread_limits[tid].max_site;
 
-        // 	Synchronous for now -- maybe change to comms compute overlap later
+        //  Synchronous for now -- maybe change to comms compute overlap later
         CommunicateHaloSyncInOMPParallel<CoarseSpinor, CoarseAccessor>(_halo, spinor_in, target_cb);
 
         IndexType ncol = spinor_in.GetNCol();
@@ -272,7 +272,7 @@ namespace MG {
         IndexType min_site = _thread_limits[tid].min_site;
         IndexType max_site = _thread_limits[tid].max_site;
 
-        // 	Synchronous for now -- maybe change to comms compute overlap later
+        //  Synchronous for now -- maybe change to comms compute overlap later
         CommunicateHaloSyncInOMPParallel<CoarseSpinor, CoarseAccessor>(_halo, spinor_in, target_cb);
 
         IndexType ncol = spinor_in.GetNCol();
@@ -296,7 +296,7 @@ namespace MG {
         IndexType min_site = _thread_limits[tid].min_site;
         IndexType max_site = _thread_limits[tid].max_site;
 
-        // 	Synchronous for now -- maybe change to comms compute overlap later
+        //  Synchronous for now -- maybe change to comms compute overlap later
         CommunicateHaloSyncInOMPParallel<CoarseSpinor, CoarseAccessor>(_halo, spinor_in, target_cb);
 
         IndexType ncol = spinor_in.GetNCol();

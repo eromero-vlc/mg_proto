@@ -422,6 +422,8 @@ namespace MG {
             assert(coarse_in.GetNCol() == fine_out.GetNCol());
             IndexType ncol = coarse_in.GetNCol();
 
+            assert(coarse_info.GetNumCBSites() == _n_blocks / 2);
+
             int num_soa = fine_info.GetNumCBSites() / QPHIX_SOALEN;
 
 #    pragma omp parallel for collapse(3)
@@ -469,8 +471,8 @@ namespace MG {
                                     float reduce_lower_im = 0;
                                     const int offset = 2 * num_coarse_color;
 
-                                    float vec_re[2 * num_coarse_color] __attribute__((aligned(64)));
-                                    float vec_im[2 * num_coarse_color] __attribute__((aligned(64)));
+                                    float vec_re[2 * num_coarse_color];
+                                    float vec_im[2 * num_coarse_color];
 
                                     for (int i = 0; i < 2 * num_coarse_color; ++i) {
                                         vec_re[i] = v[i] * coarse_site_spinor[i];

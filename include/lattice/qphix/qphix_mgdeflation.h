@@ -221,6 +221,7 @@ namespace MG {
          */
 
         void apply(QPhiXSpinor &out, const QPhiXSpinor &in, Form form) const {
+            AssertCompatible(in.GetInfo(), out.GetInfo());
             assert(out.GetNCol() == in.GetNCol());
             IndexType ncol = out.GetNCol();
 
@@ -253,6 +254,7 @@ namespace MG {
          */
 
          void apply(QPhiXSpinorF &out, const QPhiXSpinorF &in_f, Form form) const {
+            AssertCompatible(in_f.GetInfo(), out.GetInfo());
             assert(out.GetNCol() == in_f.GetNCol());
             IndexType ncol = out.GetNCol();
 
@@ -274,7 +276,7 @@ namespace MG {
 
             // Compute course_out = \gamma_5 * inv(V^H * A * \gamma_5 * V) * coarse_in
             std::shared_ptr<CoarseSpinor> coarse_out =
-                AuxC::tmp(*_mg_levels->coarse_levels.back().info, ncol);
+                AuxC::tmp(*_mg_levels->coarse_levels[0].info, ncol);
             apply(*coarse_out, *coarse_in, do_VV);
 
             // Transfer to the fine level
@@ -306,10 +308,11 @@ namespace MG {
          */
 
         void apply(CoarseSpinor &out, const CoarseSpinor &in, Form form) const {
+            AssertCompatible(in.GetInfo(), out.GetInfo());
             assert(out.GetNCol() == in.GetNCol());
             IndexType ncol = out.GetNCol();
             const unsigned int coarse_level = in.GetInfo().GetLevel();
-            assert(coarse_level >= 1);
+            assert(coarse_level >= 1 && coarse_level - 1 < _mg_levels->coarse_levels.size());
 
             // Ain = A * in if do_VVA else in
             std::shared_ptr<CoarseSpinor> coarse_in =
@@ -323,8 +326,10 @@ namespace MG {
             // Transfer to the deepest level
             for (int coarse_idx = coarse_level + 1; // target level
                  coarse_idx < (int)_mg_levels->coarse_levels.size() + 1; coarse_idx++) {
+                assert(coarse_idx >= 1 && coarse_idx - 1 < _mg_levels->coarse_levels.size());
                 std::shared_ptr<CoarseSpinor> in_level =
                     AuxC::tmp(*_mg_levels->coarse_levels[coarse_idx - 1].info, ncol);
+                assert(coarse_idx >= 2 && coarse_idx - 2 < _Transfer_coarse_level.size());
                 _Transfer_coarse_level[coarse_idx - 2]->R(*coarse_in, *in_level);
                 coarse_in = in_level;
             }
@@ -338,15 +343,17 @@ namespace MG {
             // Transfer to the first coarse level
             for (int coarse_idx = (int)_mg_levels->coarse_levels.size() - 1; // target level
                  coarse_idx >= (int)coarse_level; coarse_idx--) {
+                assert(coarse_idx >= 1 && coarse_idx - 1 < _mg_levels->coarse_levels.size());
                 std::shared_ptr<CoarseSpinor> out_level =
                     AuxC::tmp(*_mg_levels->coarse_levels[coarse_idx - 1].info, ncol);
+                assert(coarse_idx >= 1 && coarse_idx - 1 < _Transfer_coarse_level.size());
                 _Transfer_coarse_level[coarse_idx - 1]->P(*coarse_out, *out_level);
                 coarse_out = out_level;
             }
 
             // out = A*coarse_out if do_AVV else coarse_out
             if (form == do_AVV) {
-                _mg_levels->coarse_levels[coarse_level].M->unprecOp(out, *coarse_out, LINOP_OP);
+                _mg_levels->coarse_levels[coarse_level - 1].M->unprecOp(out, *coarse_out, LINOP_OP);
             } else {
                 CopyVec(out, *coarse_out);
             }

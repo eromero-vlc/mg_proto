@@ -57,6 +57,8 @@ namespace MG {
          */
 
         void unprecOp(Spinor &out, const Spinor &in, IndexType type = LINOP_OP) const override {
+            AssertCompatible(out.GetInfo(), in.GetInfo());
+            AssertCompatible(in.GetInfo(), GetInfo());
 #pragma omp parallel
             {
                 int tid = omp_get_thread_num();
@@ -77,6 +79,8 @@ namespace MG {
          */
 
         void leftOp(Spinor &out, const Spinor &in) const override {
+            AssertCompatible(out.GetInfo(), in.GetInfo());
+            AssertCompatible(in.GetInfo(), GetInfo());
             _the_op.L_matrix(out, *_u, in);
         }
 
@@ -92,10 +96,14 @@ namespace MG {
          */
 
         void leftInvOp(Spinor &out, const Spinor &in) const override {
+            AssertCompatible(out.GetInfo(), in.GetInfo());
+            AssertCompatible(in.GetInfo(), GetInfo());
             _the_op.L_inv_matrix(out, *_u, in);
         }
 
         void M_diag(Spinor &out, const Spinor &in, int cb) const override {
+            AssertCompatible(out.GetInfo(), in.GetInfo());
+            AssertCompatible(in.GetInfo(), GetInfo());
 #pragma omp parallel
             {
                 int tid = omp_get_thread_num();
@@ -116,6 +124,8 @@ namespace MG {
          */
 
         void rightOp(Spinor &out, const Spinor &in) const override {
+            AssertCompatible(out.GetInfo(), in.GetInfo());
+            AssertCompatible(in.GetInfo(), GetInfo());
             _the_op.R_matrix(out, (*_u), in);
         }
 
@@ -131,6 +141,8 @@ namespace MG {
          */
 
         void rightInvOp(Spinor &out, const Spinor &in) const override {
+            AssertCompatible(out.GetInfo(), in.GetInfo());
+            AssertCompatible(in.GetInfo(), GetInfo());
             _the_op.R_inv_matrix(out, *_u, in);
         }
 
@@ -142,6 +154,8 @@ namespace MG {
          */
 
         void M_ee_inv(Spinor &out, const Spinor &in, IndexType type = LINOP_OP) const override {
+            AssertCompatible(out.GetInfo(), in.GetInfo());
+            AssertCompatible(in.GetInfo(), GetInfo());
             (void)type;
 #pragma omp parallel
             {
@@ -158,6 +172,8 @@ namespace MG {
          */
 
         void M_oo_inv(Spinor &out, const Spinor &in, IndexType type = LINOP_OP) const override {
+            AssertCompatible(out.GetInfo(), in.GetInfo());
+            AssertCompatible(in.GetInfo(), GetInfo());
             (void)type;
 #pragma omp parallel
             {
